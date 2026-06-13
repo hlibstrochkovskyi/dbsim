@@ -1,0 +1,9 @@
+{
+  "source": "gtfs.de fv_free (DELFI national GTFS, fv)",
+  "url": "https://download.gtfs.de/germany/fv_free/latest.zip",
+  "retrieved_at": "2026-06-13T21:55:44.131546+00:00",
+  "snapshot_date": "2026-06-13",
+  "sha256": "cfd3d224073d80f6f50a2f04b1cb395b5b811042c772a99eee971d0822815914",
+  "size_bytes": 384840,
+  "license": "CC-BY 4.0 (data: DELFI e.V., via gtfs.de)"
+}

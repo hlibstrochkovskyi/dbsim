@@ -20,10 +20,14 @@ htmlcov/
 coverage.xml
 
 # Data — large, downloaded, regenerable. Never committed (see docs/data-versioning.md).
+# Raw/processed bytes stay out of git; only the small source.json manifests are kept,
+# so every dataset stays reproducible (source + date + sha256) without storing it.
 data/raw/**
 data/processed/**
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/raw/**/
+!data/raw/**/source.json
 
 # Recordings (sim outputs)
 *.parquet

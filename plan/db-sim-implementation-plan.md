@@ -68,10 +68,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Deliverable:** a `hello-world` sim loop.
 - **Acceptance:** `pytest` passes; running the empty engine twice with the same seed produces an identical output hash.
 
-### M0.2 — GTFS ingestion · `M`
-- [ ] Download DELFI GTFS, parse with `gtfs-kit`, load into DuckDB, build canonical timetable tables (trips, stop_times, calendar).
-- **Deliverable:** query "all trains through Frankfurt Hbf on a given Tuesday."
-- **Acceptance:** can reconstruct a specific train's full scheduled stop sequence + times; row counts sanity-checked against the feed.
+### M0.2 — GTFS ingestion · `M` ✅
+- [x] Download DELFI GTFS (gtfs.de `fv` long-distance feed), load into DuckDB, build canonical timetable tables (agency, stops, routes, trips, stop_times, calendar, calendar_dates).
+- **Deliverable:** query "all trains through Frankfurt Hbf on a given Tuesday." → `dbsim query trains "Frankfurt(Main)Hbf" --date 20260616` (253 ICE/IC trains).
+- **Acceptance:** can reconstruct a specific train's full scheduled stop sequence + times (e.g. ICE 22 trip 124021, Frankfurt→Hamburg→north); row counts sanity-checked against the feed. ✅
+- *Notes:* used DuckDB-native CSV ingestion (not `gtfs-kit`) — lighter & deterministic. Loader is feed-agnostic; swap to the full national feed via `--feed free` at M1.5. GTFS clock times parsed to seconds-since-midnight (handles >24:00:00).
 
 ### M0.3 — Macroscopic timetable graph · `M`
 - [ ] Build the network graph: stations = nodes, scheduled services = time-weighted edges. Use `rustworkx`.

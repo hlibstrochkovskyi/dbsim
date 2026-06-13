@@ -1,0 +1,5 @@
+stop_id,stop_name,parent_station,stop_lat,stop_lon,location_type,platform_code
+S_HBF,Musterstadt Hbf,,50.1000,8.6000,1,
+S_HBF_1,Musterstadt Hbf,S_HBF,50.1000,8.6000,0,1
+S_NORD,Nordstadt,,50.2000,8.6000,0,
+S_SUED,Suedstadt,,50.0000,8.6000,0,

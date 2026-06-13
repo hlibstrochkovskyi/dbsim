@@ -1,0 +1,3 @@
+route_id,route_short_name,route_long_name,route_type,agency_id
+R_ICE,ICE 100,,2,1
+R_RB,RB 50,,2,1

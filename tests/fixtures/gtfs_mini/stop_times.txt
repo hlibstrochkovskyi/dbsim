@@ -1,0 +1,10 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign
+T_ICE_A,,08:00:00,S_NORD,0,
+T_ICE_A,09:00:00,09:05:00,S_HBF_1,1,
+T_ICE_A,10:00:00,,S_SUED,2,
+T_NIGHT,,23:30:00,S_SUED,0,
+T_NIGHT,24:30:00,24:35:00,S_HBF_1,1,
+T_NIGHT,25:10:00,,S_NORD,2,
+T_RB_WE,,12:00:00,S_NORD,0,
+T_RB_WE,12:30:00,12:32:00,S_HBF_1,1,
+T_RB_WE,13:00:00,,S_SUED,2,

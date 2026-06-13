@@ -1,0 +1,4 @@
+route_id,service_id,trip_id,trip_headsign
+R_ICE,WD,T_ICE_A,Suedstadt
+R_ICE,DAILY,T_NIGHT,Nordstadt
+R_RB,WE,T_RB_WE,Suedstadt

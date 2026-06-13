@@ -24,18 +24,37 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 
 ```bash
 uv sync                 # create the venv and install dev deps
-uv run dbsim            # run the hello-world sim loop (prints a run hash)
+uv run dbsim sim        # run the hello-world sim loop (prints a run hash)
 uv run pytest           # run the test suite (incl. determinism harness)
 uv run ruff check .     # lint
 uv run ruff format --check .
 uv run mypy             # type-check
 ```
 
+### Ingest the timetable (M0.2)
+
+```bash
+# Download the gtfs.de long-distance (ICE/IC) feed and load it into DuckDB.
+uv run dbsim ingest --feed fv
+
+# "All trains through Frankfurt Hbf on a given Tuesday":
+uv run dbsim query trains "Frankfurt(Main)Hbf" --date 20260616 \
+    --db data/processed/gtfs-fv.duckdb
+
+# Reconstruct a specific train's full scheduled stop sequence:
+uv run dbsim query trip 124021 --db data/processed/gtfs-fv.duckdb
+```
+
+Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
+only a small `source.json` manifest pins each download.
+
 ## Project status
 
-Currently at **M0.1 — Project skeleton & determinism harness** (Phase 0).
-The engine is an empty, deterministic event loop with a run-hashing harness; data
-ingestion and the timetable graph come in M0.2+.
+Phase 0 in progress:
+
+- **M0.1 — skeleton & determinism harness** ✅ — deterministic event loop + run hashing.
+- **M0.2 — GTFS ingestion** ✅ — gtfs.de feed → canonical DuckDB tables; station/trip queries.
+- **M0.3 — macroscopic timetable graph** — next.
 
 ## Repository layout
 
