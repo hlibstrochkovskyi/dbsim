@@ -20,7 +20,7 @@ from dbsim.analysis import (
     extract_train_paths,
     render_bildfahrplan,
 )
-from dbsim.engine import Event, MacroSimulation, Simulation, load_schedules
+from dbsim.engine import Event, MacroSimulation, PrimaryDelay, Simulation, load_schedules
 from dbsim.ingest import FEEDS, download_feed, load_feed
 from dbsim.model import Timetable, TimetableGraph, format_hms
 from dbsim.record import hash_run
@@ -176,10 +176,19 @@ def _run_bildfahrplan(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _parse_delay(value: str) -> PrimaryDelay:
+    """Parse a ``TRIP:SEQ:SECONDS`` primary-delay spec."""
+    parts = value.split(":")
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError(f"invalid --delay {value!r}; expected TRIP:SEQ:SECONDS")
+    return PrimaryDelay(parts[0], int(parts[1]), int(parts[2]))
+
+
 def _run_simulate(args: argparse.Namespace) -> None:
     names = (
         tuple(s.strip() for s in args.stations.split(";")) if args.stations else DEFAULT_CORRIDOR
     )
+    delays = [_parse_delay(d) for d in args.delay or []]
     with Timetable(args.db) as tt:
         if args.all:
             scope = "national macro"
@@ -189,13 +198,22 @@ def _run_simulate(args: argparse.Namespace) -> None:
             trip_ids = {p.trip_id for p in extract_train_paths(tt, corridor, args.date)}
             scope = f"corridor {names[0]} – {names[-1]}"
         schedules = load_schedules(tt, args.date, trip_ids)
-        macro = MacroSimulation(schedules, seed=args.seed, min_dwell_s=args.min_dwell)
+        macro = MacroSimulation(
+            schedules, seed=args.seed, min_dwell_s=args.min_dwell, primary_delays=delays
+        )
         result = macro.run()
 
     print(f"simulated {scope} on {args.date}: {len(schedules)} trains")
     print(f"  movement events    {len(macro.records):>10,}")
-    print(f"  max deviation      {macro.max_abs_deviation_s():>10,} s")
+    print(f"  primary delays     {len(delays):>10,}")
+    print(f"  delayed events     {macro.delayed_event_count():>10,}")
+    print(f"  max delay          {macro.max_abs_deviation_s():>10,} s")
+    print(f"  total delay        {macro.total_delay_s():>10,} s")
     print(f"  reproduces sched.  {macro.reproduces_schedule()!s:>10}")
+    if macro.worst_trains():
+        print("  most-delayed trains:")
+        for trip, delay in macro.worst_trains():
+            print(f"    {trip:<12} +{delay // 60} min")
     print(f"  run_hash={hash_run(result)}")
 
 
@@ -264,6 +282,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--stations", default=None, help="Corridor names (semicolon-separated).")
     p_run.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Run seed.")
     p_run.add_argument("--min-dwell", type=int, default=0, help="Minimum dwell seconds.")
+    p_run.add_argument(
+        "--delay",
+        action="append",
+        metavar="TRIP:SEQ:SECONDS",
+        help="Inject a primary delay (repeatable).",
+    )
     p_run.set_defaults(func=_run_simulate)
 
     return parser

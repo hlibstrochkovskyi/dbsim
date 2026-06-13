@@ -17,17 +17,21 @@ from __future__ import annotations
 from dbsim.engine.events import Event
 from dbsim.engine.loop import RunResult, Simulation
 from dbsim.engine.trains import (
+    Connection,
     MacroSimulation,
     MovementRecord,
+    PrimaryDelay,
     ScheduledStop,
     TrainSchedule,
     load_schedules,
 )
 
 __all__ = [
+    "Connection",
     "Event",
     "MacroSimulation",
     "MovementRecord",
+    "PrimaryDelay",
     "RunResult",
     "ScheduledStop",
     "Simulation",

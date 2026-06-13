@@ -98,10 +98,12 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** with no perturbation, simulated times == scheduled times **exactly** (max deviation 0 s); deterministic across runs (identical run hash). ✅
   - Corridor: 159 trains, 3,148 events, 0 s deviation. Full national: 1,087 trains, 17,354 events, 0 s deviation, ~0.6 s wall-clock.
 
-### M1.2 — Delay model & propagation · `M`
-- [ ] Dwell-time constraints, minimum connection/transfer times, macro-level headway; primary-delay injection.
-- **Deliverable:** inject "ICE X +20 min at Frankfurt," observe downstream + connection effects.
-- **Acceptance:** a primary delay produces plausible secondary delays; **no acausal effects** (nothing propagates backward in time).
+### M1.2 — Delay model & propagation · `M` ✅
+- [x] Primary-delay injection (hold a trip at a stop by N s), dwell-time constraints **with recovery** (scheduled dwell slack absorbs delay down to `min_dwell`), and minimum connection/transfer holding (declared `Connection`: connector held to `feeder_arrival + min_transfer`, dropped past `sched_dep + max_wait`, via event-driven hold/release + deadline). `dbsim run --delay TRIP:SEQ:SECONDS`.
+- **Deliverable:** inject "ICE 22 +20 min at Frankfurt," observe downstream + connection effects. ✅
+- **Acceptance:** a primary delay produces plausible secondary delays; **no acausal effects** (zero negative deviations; the loop rejects scheduling in the past). ✅
+  - On the real fv feed: ICE 22 +20 min decays along its route (+20 → +18 → +16 → … → +5 by Hamburg) as dwell slack recovers ~2 min/stop; a protected connector at Hanau is held +10 min for the late feeder.
+- **⚠ Headway moved to M2.2.** Macro station-to-station headway without a track-segment/occupancy model is unprincipled; Phase 2 (M2.2) implements it correctly as a contended resource. The M1.2 acceptance is fully met without it.
 
 ### M1.3 — Recording format & replay · `S`
 - [ ] Engine emits an event/trajectory log (Parquet); a loader reconstructs train positions over time.
@@ -143,7 +145,7 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** known single-track lines correctly flagged; geometry plausible vs OpenRailwayMap.
 
 ### M2.2 — Running-time & headway model · `M`
-- [ ] Per-segment traversal times, minimum headways; segment occupancy as a contended resource.
+- [ ] Per-segment traversal times, minimum headways; segment occupancy as a contended resource. *(Includes the macro→segment **headway** deferred from M1.2 — done here where the occupancy model makes it principled.)*
 - **Deliverable:** trains contend for segment capacity.
 - **Acceptance:** two trains cannot occupy a single-track segment in conflicting directions simultaneously.
 

@@ -71,6 +71,10 @@ uv run dbsim bildfahrplan --date 20260616 \
 # Unperturbed, simulated times reproduce the schedule exactly and deterministically.
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb --all
+
+# Inject a primary delay (TRIP:SEQ:SECONDS) and watch it cascade (M1.2):
+uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb \
+    --delay 124021:0:1200   # ICE 22 +20 min at Frankfurt
 ```
 
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
@@ -90,7 +94,8 @@ Phase 0 in progress:
 Phase 1 in progress:
 
 - **M1.1 — event-driven core engine** ✅ — `MacroSimulation` reproduces the timetable exactly, deterministically.
-- **M1.2 — delay model & propagation** — next (the leading research question).
+- **M1.2 — delay model & propagation** ✅ — primary delays, dwell recovery, connection holding; no acausal effects.
+- **M1.3 — recording format & replay** — next.
 
 ## Repository layout
 
