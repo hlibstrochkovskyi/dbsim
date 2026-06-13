@@ -92,10 +92,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 
 *Goal: the first genuinely useful study tool — inject a delay, watch it cascade, compare to reality.*
 
-### M1.1 — Event-driven core engine · `L`
-- [ ] Priority-queue event loop; event types (depart, arrive); analytical movement at scheduled-running-time granularity.
-- **Deliverable:** simulate one day of one corridor, zero perturbation, reproducing the timetable.
-- **Acceptance:** with no perturbation, simulated times == scheduled times (within rounding); deterministic across runs.
+### M1.1 — Event-driven core engine · `L` ✅
+- [x] `MacroSimulation` drives trains through their scheduled stop sequences on the M0.1 event loop; event types `depart`/`arrive`; analytical movement at scheduled-running-time granularity. Running-time/dwell rules isolated as M1.2 extension points (`min_dwell_s` hook present). `dbsim run --date … [--all]`.
+- **Deliverable:** simulate one day of one corridor (Frankfurt–Hannover), zero perturbation, reproducing the timetable. Also runs the full national macro day.
+- **Acceptance:** with no perturbation, simulated times == scheduled times **exactly** (max deviation 0 s); deterministic across runs (identical run hash). ✅
+  - Corridor: 159 trains, 3,148 events, 0 s deviation. Full national: 1,087 trains, 17,354 events, 0 s deviation, ~0.6 s wall-clock.
 
 ### M1.2 — Delay model & propagation · `M`
 - [ ] Dwell-time constraints, minimum connection/transfer times, macro-level headway; primary-delay injection.

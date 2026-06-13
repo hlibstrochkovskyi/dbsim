@@ -64,6 +64,15 @@ uv run dbsim bildfahrplan --date 20260616 \
     --db data/processed/gtfs-fv.duckdb --out viz/bildfahrplan.png
 ```
 
+### Simulate a day (M1.1)
+
+```bash
+# Drive trains through the timetable (corridor by default; --all for the nation).
+# Unperturbed, simulated times reproduce the schedule exactly and deterministically.
+uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb
+uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb --all
+```
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -76,7 +85,12 @@ Phase 0 in progress:
 - **M0.3 — macroscopic timetable graph** ✅ — `rustworkx` time-expanded graph; earliest-arrival routing.
 - **M0.4 — first Bildfahrplan** ✅ — corridor time–distance diagram (matplotlib).
 
-**Phase 0 complete.** Next: Phase 1 (event-driven core engine + validation against GTFS-RT).
+**Phase 0 complete.**
+
+Phase 1 in progress:
+
+- **M1.1 — event-driven core engine** ✅ — `MacroSimulation` reproduces the timetable exactly, deterministically.
+- **M1.2 — delay model & propagation** — next (the leading research question).
 
 ## Repository layout
 

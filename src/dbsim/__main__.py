@@ -20,7 +20,7 @@ from dbsim.analysis import (
     extract_train_paths,
     render_bildfahrplan,
 )
-from dbsim.engine import Event, Simulation
+from dbsim.engine import Event, MacroSimulation, Simulation, load_schedules
 from dbsim.ingest import FEEDS, download_feed, load_feed
 from dbsim.model import Timetable, TimetableGraph, format_hms
 from dbsim.record import hash_run
@@ -172,6 +172,34 @@ def _run_bildfahrplan(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `run` — macroscopic train-movement simulation (M1.1)
+# ---------------------------------------------------------------------------
+
+
+def _run_simulate(args: argparse.Namespace) -> None:
+    names = (
+        tuple(s.strip() for s in args.stations.split(";")) if args.stations else DEFAULT_CORRIDOR
+    )
+    with Timetable(args.db) as tt:
+        if args.all:
+            scope = "national macro"
+            trip_ids: set[str] | None = None
+        else:
+            corridor = build_corridor(tt, names)
+            trip_ids = {p.trip_id for p in extract_train_paths(tt, corridor, args.date)}
+            scope = f"corridor {names[0]} – {names[-1]}"
+        schedules = load_schedules(tt, args.date, trip_ids)
+        macro = MacroSimulation(schedules, seed=args.seed, min_dwell_s=args.min_dwell)
+        result = macro.run()
+
+    print(f"simulated {scope} on {args.date}: {len(schedules)} trains")
+    print(f"  movement events    {len(macro.records):>10,}")
+    print(f"  max deviation      {macro.max_abs_deviation_s():>10,} s")
+    print(f"  reproduces sched.  {macro.reproduces_schedule()!s:>10}")
+    print(f"  run_hash={hash_run(result)}")
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -228,6 +256,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Semicolon-separated ordered station names (default: Frankfurt–Hannover).",
     )
     p_bild.set_defaults(func=_run_bildfahrplan)
+
+    p_run = sub.add_parser("run", help="Simulate train movement for a date (M1.1).")
+    p_run.add_argument("--date", required=True, help="Service date as YYYYMMDD.")
+    p_run.add_argument("--db", type=Path, required=True, help="DuckDB path.")
+    p_run.add_argument("--all", action="store_true", help="Simulate all trains, not a corridor.")
+    p_run.add_argument("--stations", default=None, help="Corridor names (semicolon-separated).")
+    p_run.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Run seed.")
+    p_run.add_argument("--min-dwell", type=int, default=0, help="Minimum dwell seconds.")
+    p_run.set_defaults(func=_run_simulate)
 
     return parser
 
