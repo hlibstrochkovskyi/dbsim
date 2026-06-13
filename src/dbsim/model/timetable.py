@@ -86,6 +86,11 @@ class Timetable:
     def __init__(self, db_path: Path | str) -> None:
         self._con = duckdb.connect(str(db_path), read_only=True)
 
+    @property
+    def connection(self) -> duckdb.DuckDBPyConnection:
+        """The underlying read-only DuckDB connection (for in-package models)."""
+        return self._con
+
     def close(self) -> None:
         self._con.close()
 

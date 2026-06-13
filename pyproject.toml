@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Hlib Strochkovskyi" }]
 dependencies = [
     "duckdb>=1.5.3",
+    "rustworkx>=0.17.1",
 ]
 
 [project.scripts]

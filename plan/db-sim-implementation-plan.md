@@ -74,10 +74,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** can reconstruct a specific train's full scheduled stop sequence + times (e.g. ICE 22 trip 124021, Frankfurt→Hamburg→north); row counts sanity-checked against the feed. ✅
 - *Notes:* used DuckDB-native CSV ingestion (not `gtfs-kit`) — lighter & deterministic. Loader is feed-agnostic; swap to the full national feed via `--feed free` at M1.5. GTFS clock times parsed to seconds-since-midnight (handles >24:00:00).
 
-### M0.3 — Macroscopic timetable graph · `M`
-- [ ] Build the network graph: stations = nodes, scheduled services = time-weighted edges. Use `rustworkx`.
-- **Deliverable:** graph object + basic stats (node/edge counts, connectivity).
-- **Acceptance:** shortest-path-by-scheduled-time between two stations returns a plausible itinerary matching a real connection.
+### M0.3 — Macroscopic timetable graph · `M` ✅
+- [x] Build the network graph with `rustworkx`: a **time-expanded** graph (arrival/departure events = nodes; ride/dwell/station-timeline edges) for routing, plus a station-level graph (stations = nodes) for connectivity stats.
+- **Deliverable:** `TimetableGraph` object + `dbsim graph` stats (event nodes/edges, stations, weakly-connected components). On the fv feed for a Tuesday: 500 stations, 497 in the largest component.
+- **Acceptance:** `dbsim route` does shortest-path-by-scheduled-time (earliest arrival, incl. transfers) → plausible itineraries: Frankfurt→Hamburg picks the **direct ICE 22 06:46** (matches the M0.2-reconstructed schedule); Frankfurt→München ~3h32 (1 transfer); Frankfurt→Berlin ~4h14. ✅
+- *Notes:* transfers currently allow any non-negative wait; a **minimum** connection time is deferred to M1.2. Some intermediate station names in the fv feed are generic ("Hauptbahnhof") — a data quirk, not a routing bug.
 
 ### M0.4 — First Bildfahrplan (time–distance diagram) · `S`
 - [ ] Pick a corridor (e.g. Frankfurt–Mannheim); plot the scheduled train graph.

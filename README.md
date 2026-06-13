@@ -45,6 +45,17 @@ uv run dbsim query trains "Frankfurt(Main)Hbf" --date 20260616 \
 uv run dbsim query trip 124021 --db data/processed/gtfs-fv.duckdb
 ```
 
+### Build the timetable graph & plan journeys (M0.3)
+
+```bash
+# Graph statistics (event nodes/edges, stations, connectivity) for a date:
+uv run dbsim graph --date 20260616 --db data/processed/gtfs-fv.duckdb
+
+# Earliest-arrival journey by scheduled time (includes transfers):
+uv run dbsim route "Frankfurt(Main)Hbf" "München Hbf" \
+    --date 20260616 --depart-after 08:00 --db data/processed/gtfs-fv.duckdb
+```
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -54,7 +65,8 @@ Phase 0 in progress:
 
 - **M0.1 — skeleton & determinism harness** ✅ — deterministic event loop + run hashing.
 - **M0.2 — GTFS ingestion** ✅ — gtfs.de feed → canonical DuckDB tables; station/trip queries.
-- **M0.3 — macroscopic timetable graph** — next.
+- **M0.3 — macroscopic timetable graph** ✅ — `rustworkx` time-expanded graph; earliest-arrival routing.
+- **M0.4 — first Bildfahrplan** — next.
 
 ## Repository layout
 

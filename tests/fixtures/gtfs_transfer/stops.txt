@@ -1,0 +1,4 @@
+stop_id,stop_name,parent_station,stop_lat,stop_lon,location_type,platform_code
+A,Alpha,,50.0,8.0,0,
+B,Bravo,,50.1,8.1,0,
+C,Charlie,,50.2,8.2,0,

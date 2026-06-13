@@ -16,7 +16,7 @@ from pathlib import Path
 
 from dbsim.engine import Event, Simulation
 from dbsim.ingest import FEEDS, download_feed, load_feed
-from dbsim.model import Timetable
+from dbsim.model import Timetable, TimetableGraph, format_hms
 from dbsim.record import hash_run
 from dbsim.seed import DEFAULT_SEED
 
@@ -104,6 +104,53 @@ def _run_query_trip(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `graph` / `route` — the macroscopic timetable graph (M0.3)
+# ---------------------------------------------------------------------------
+
+
+def _parse_clock(value: str) -> int:
+    """Parse ``HH:MM`` or ``HH:MM:SS`` into seconds since midnight."""
+    parts = value.split(":")
+    if len(parts) not in (2, 3):
+        raise argparse.ArgumentTypeError(f"invalid time {value!r}; expected HH:MM[:SS]")
+    h, m = int(parts[0]), int(parts[1])
+    s = int(parts[2]) if len(parts) == 3 else 0
+    return h * 3600 + m * 60 + s
+
+
+def _run_graph_stats(args: argparse.Namespace) -> None:
+    with Timetable(args.db) as tt:
+        stats = TimetableGraph(tt, args.date).stats()
+    print(f"timetable graph for {stats.service_date}:")
+    print(f"  event nodes        {stats.event_nodes:>10,}")
+    print(f"  event edges        {stats.event_edges:>10,}")
+    print(f"  stations           {stats.stations:>10,}")
+    print(f"  station edges      {stats.station_edges:>10,}")
+    print(f"  components (weak)  {stats.weakly_connected_components:>10,}")
+    print(f"  largest component  {stats.largest_component_stations:>10,} stations")
+
+
+def _run_route(args: argparse.Namespace) -> None:
+    depart_after = _parse_clock(args.depart_after)
+    with Timetable(args.db) as tt:
+        journey = TimetableGraph(tt, args.date).plan_journey(args.origin, args.dest, depart_after)
+    if journey is None:
+        print(f"no journey from {args.origin!r} to {args.dest!r} after {args.depart_after}")
+        return
+    print(
+        f"{args.origin} -> {args.dest}: depart {format_hms(journey.depart_time_s)}, "
+        f"arrive {format_hms(journey.arrive_time_s)}, "
+        f"{format_hms(journey.duration_s)} travel, {journey.n_transfers} transfer(s)"
+    )
+    for leg in journey.legs:
+        line = leg.line or "?"
+        print(
+            f"  {line:<8} {format_hms(leg.board_time_s)} {leg.board_stop_name}"
+            f"  ->  {format_hms(leg.alight_time_s)} {leg.alight_stop_name}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -136,6 +183,19 @@ def _build_parser() -> argparse.ArgumentParser:
     p_trip.add_argument("trip_id", help="GTFS trip_id.")
     p_trip.add_argument("--db", type=Path, required=True, help="DuckDB path.")
     p_trip.set_defaults(func=_run_query_trip)
+
+    p_graph = sub.add_parser("graph", help="Timetable-graph statistics for a date.")
+    p_graph.add_argument("--date", required=True, help="Service date as YYYYMMDD.")
+    p_graph.add_argument("--db", type=Path, required=True, help="DuckDB path.")
+    p_graph.set_defaults(func=_run_graph_stats)
+
+    p_route = sub.add_parser("route", help="Earliest-arrival journey between two stations.")
+    p_route.add_argument("origin", help='Origin station name, e.g. "Frankfurt(Main)Hbf".')
+    p_route.add_argument("dest", help="Destination station name.")
+    p_route.add_argument("--date", required=True, help="Service date as YYYYMMDD.")
+    p_route.add_argument("--depart-after", default="00:00", help="Earliest departure HH:MM[:SS].")
+    p_route.add_argument("--db", type=Path, required=True, help="DuckDB path.")
+    p_route.set_defaults(func=_run_route)
 
     return parser
 
