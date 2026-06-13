@@ -56,6 +56,14 @@ uv run dbsim route "Frankfurt(Main)Hbf" "München Hbf" \
     --date 20260616 --depart-after 08:00 --db data/processed/gtfs-fv.duckdb
 ```
 
+### Bildfahrplan — time–distance diagram (M0.4)
+
+```bash
+# Render the scheduled train graph for a corridor (default: Frankfurt–Hannover):
+uv run dbsim bildfahrplan --date 20260616 \
+    --db data/processed/gtfs-fv.duckdb --out viz/bildfahrplan.png
+```
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -66,7 +74,9 @@ Phase 0 in progress:
 - **M0.1 — skeleton & determinism harness** ✅ — deterministic event loop + run hashing.
 - **M0.2 — GTFS ingestion** ✅ — gtfs.de feed → canonical DuckDB tables; station/trip queries.
 - **M0.3 — macroscopic timetable graph** ✅ — `rustworkx` time-expanded graph; earliest-arrival routing.
-- **M0.4 — first Bildfahrplan** — next.
+- **M0.4 — first Bildfahrplan** ✅ — corridor time–distance diagram (matplotlib).
+
+**Phase 0 complete.** Next: Phase 1 (event-driven core engine + validation against GTFS-RT).
 
 ## Repository layout
 

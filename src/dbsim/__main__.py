@@ -14,6 +14,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from dbsim.analysis import (
+    DEFAULT_CORRIDOR,
+    build_corridor,
+    extract_train_paths,
+    render_bildfahrplan,
+)
 from dbsim.engine import Event, Simulation
 from dbsim.ingest import FEEDS, download_feed, load_feed
 from dbsim.model import Timetable, TimetableGraph, format_hms
@@ -150,6 +156,21 @@ def _run_route(args: argparse.Namespace) -> None:
         )
 
 
+def _run_bildfahrplan(args: argparse.Namespace) -> None:
+    names = (
+        tuple(s.strip() for s in args.stations.split(";")) if args.stations else DEFAULT_CORRIDOR
+    )
+    with Timetable(args.db) as tt:
+        corridor = build_corridor(tt, names)
+        paths = extract_train_paths(tt, corridor, args.date)
+    title = f"Bildfahrplan {names[0]} – {names[-1]} ({args.date})"
+    render_bildfahrplan(corridor, paths, args.out, title=title)
+    print(
+        f"{len(paths)} trains over {corridor.length_km:.0f} km "
+        f"({len(corridor.stations)} stations) -> {args.out}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
@@ -196,6 +217,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p_route.add_argument("--depart-after", default="00:00", help="Earliest departure HH:MM[:SS].")
     p_route.add_argument("--db", type=Path, required=True, help="DuckDB path.")
     p_route.set_defaults(func=_run_route)
+
+    p_bild = sub.add_parser("bildfahrplan", help="Render a corridor time–distance diagram.")
+    p_bild.add_argument("--date", required=True, help="Service date as YYYYMMDD.")
+    p_bild.add_argument("--db", type=Path, required=True, help="DuckDB path.")
+    p_bild.add_argument("--out", type=Path, default=Path("viz/bildfahrplan.png"), help="PNG path.")
+    p_bild.add_argument(
+        "--stations",
+        default=None,
+        help="Semicolon-separated ordered station names (default: Frankfurt–Hannover).",
+    )
+    p_bild.set_defaults(func=_run_bildfahrplan)
 
     return parser
 

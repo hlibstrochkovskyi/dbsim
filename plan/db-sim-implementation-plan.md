@@ -80,10 +80,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** `dbsim route` does shortest-path-by-scheduled-time (earliest arrival, incl. transfers) → plausible itineraries: Frankfurt→Hamburg picks the **direct ICE 22 06:46** (matches the M0.2-reconstructed schedule); Frankfurt→München ~3h32 (1 transfer); Frankfurt→Berlin ~4h14. ✅
 - *Notes:* transfers currently allow any non-negative wait; a **minimum** connection time is deferred to M1.2. Some intermediate station names in the fv feed are generic ("Hauptbahnhof") — a data quirk, not a routing bug.
 
-### M0.4 — First Bildfahrplan (time–distance diagram) · `S`
-- [ ] Pick a corridor (e.g. Frankfurt–Mannheim); plot the scheduled train graph.
-- **Deliverable:** a Bildfahrplan (static or interactive).
-- **Acceptance:** the diagram matches the published timetable for that corridor on spot-checked trains.
+### M0.4 — First Bildfahrplan (time–distance diagram) · `S` ✅
+- [x] Corridor = Frankfurt–Hannover ICE line (6 stations, 313 km); plotted the scheduled train graph with matplotlib. `dbsim bildfahrplan --date … --out …`.
+- **Deliverable:** a static Bildfahrplan PNG — distance (cumulative great-circle) on y, time on x, trains coloured by direction; 159 trains on a Tuesday; overnight services render past 24:00.
+- **Acceptance:** ICE 22 (trip 124021) corridor times match the published schedule **exactly** (Frankfurt 04:41 → Hanau 04:55/57 → Fulda 05:39/41 → Kassel 06:10/12 → Göttingen 06:30/32 → Hannover 07:05/09), consistent with the M0.2 trip reconstruction. ✅
+- *Notes:* corridor is configurable via `--stations "A;B;C"`; output PNG is git-ignored (regenerable).
 
 ---
 

@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Hlib Strochkovskyi" }]
 dependencies = [
     "duckdb>=1.5.3",
+    "matplotlib>=3.11.0",
     "rustworkx>=0.17.1",
 ]
 
@@ -50,6 +51,9 @@ select = [
     "SIM", # flake8-simplify
     "RUF", # ruff-specific
 ]
+# Allow non-ASCII typography and real German station names (umlauts, en-dashes,
+# arrows) in strings/docstrings — they are intentional, not confusable typos.
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.mypy]
 python_version = "3.12"
