@@ -23,7 +23,7 @@ from dbsim.analysis import (
 from dbsim.engine import Event, MacroSimulation, PrimaryDelay, Simulation, load_schedules
 from dbsim.ingest import FEEDS, download_feed, load_feed
 from dbsim.model import Timetable, TimetableGraph, format_hms
-from dbsim.record import hash_run
+from dbsim.record import hash_run, load_recording, write_recording
 from dbsim.seed import DEFAULT_SEED
 
 #: Number of "tick" events the demo chains together.
@@ -214,7 +214,50 @@ def _run_simulate(args: argparse.Namespace) -> None:
         print("  most-delayed trains:")
         for trip, delay in macro.worst_trains():
             print(f"    {trip:<12} +{delay // 60} min")
-    print(f"  run_hash={hash_run(result)}")
+    run_hash = hash_run(result)
+    print(f"  run_hash={run_hash}")
+    if args.record is not None:
+        write_recording(
+            macro.records,
+            args.record,
+            service_date=int(args.date),
+            seed=args.seed,
+            run_hash=run_hash,
+        )
+        print(f"  recording -> {args.record}")
+
+
+# ---------------------------------------------------------------------------
+# `replay` — read a recording back (M1.3)
+# ---------------------------------------------------------------------------
+
+
+def _run_replay(args: argparse.Namespace) -> None:
+    rec = load_recording(args.recording)
+    print(f"recording {args.recording}")
+    print(f"  service_date {rec.meta.service_date}  seed {rec.meta.seed}")
+    print(f"  trains {len(rec.trips()):,}  events {rec.meta.n_events:,}")
+    print(f"  run_hash {rec.meta.run_hash}")
+    if args.at is None:
+        return
+
+    t = _parse_clock(args.at)
+    names: dict[str, str] = {}
+    if args.db is not None:
+        with Timetable(args.db) as tt:
+            rows = tt.connection.execute("SELECT stop_id, stop_name FROM stops").fetchall()
+        names = {str(r[0]): str(r[1]) for r in rows}
+
+    moving = [
+        (trip, p)
+        for trip in rec.trips()
+        if (p := rec.position_at(trip, t)) is not None and not p.at_stop
+    ]
+    print(f"\nat {args.at}: {len(moving)} trains underway (showing up to 15):")
+    for trip, p in moving[:15]:
+        frm = names.get(p.from_stop_id, p.from_stop_id)
+        to = names.get(p.to_stop_id, p.to_stop_id)
+        print(f"  {trip:<10} {frm} -> {to}  ({p.fraction * 100:.0f}%)")
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +331,14 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="TRIP:SEQ:SECONDS",
         help="Inject a primary delay (repeatable).",
     )
+    p_run.add_argument("--record", type=Path, default=None, help="Write a Parquet recording.")
     p_run.set_defaults(func=_run_simulate)
+
+    p_replay = sub.add_parser("replay", help="Read back a recording (M1.3).")
+    p_replay.add_argument("recording", type=Path, help="Recording Parquet path.")
+    p_replay.add_argument("--at", default=None, help="Show positions at HH:MM[:SS].")
+    p_replay.add_argument("--db", type=Path, default=None, help="DuckDB for stop names.")
+    p_replay.set_defaults(func=_run_replay)
 
     return parser
 

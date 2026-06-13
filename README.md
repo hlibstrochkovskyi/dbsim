@@ -77,6 +77,17 @@ uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb \
     --delay 124021:0:1200   # ICE 22 +20 min at Frankfurt
 ```
 
+### Record & replay (M1.3)
+
+```bash
+# Emit a Parquet recording of a run, then read positions back:
+uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb --all \
+    --record data/processed/run.parquet
+uv run dbsim replay data/processed/run.parquet --at 08:00 --db data/processed/gtfs-fv.duckdb
+```
+
+See `notebooks/replay.ipynb` for a worked replay (activity curve, trajectories, a map snapshot).
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -95,7 +106,8 @@ Phase 1 in progress:
 
 - **M1.1 — event-driven core engine** ✅ — `MacroSimulation` reproduces the timetable exactly, deterministically.
 - **M1.2 — delay model & propagation** ✅ — primary delays, dwell recovery, connection holding; no acausal effects.
-- **M1.3 — recording format & replay** — next.
+- **M1.3 — recording format & replay** ✅ — self-describing Parquet recording; position reconstruction.
+- **M1.4 — ⭐ validation against GTFS-RT** — next (the make-or-break milestone).
 
 ## Repository layout
 

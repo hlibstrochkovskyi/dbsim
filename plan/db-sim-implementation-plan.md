@@ -105,10 +105,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
   - On the real fv feed: ICE 22 +20 min decays along its route (+20 → +18 → +16 → … → +5 by Hamburg) as dwell slack recovers ~2 min/stop; a protected connector at Hanau is held +10 min for the late feeder.
 - **⚠ Headway moved to M2.2.** Macro station-to-station headway without a track-segment/occupancy model is unprincipled; Phase 2 (M2.2) implements it correctly as a contended resource. The M1.2 acceptance is fully met without it.
 
-### M1.3 — Recording format & replay · `S`
-- [ ] Engine emits an event/trajectory log (Parquet); a loader reconstructs train positions over time.
-- **Deliverable:** a recording file + a notebook that replays it.
-- **Acceptance:** the recording fully reconstructs the run and reloads to identical analysis.
+### M1.3 — Recording format & replay · `S` ✅
+- [x] A run emits a self-describing **Parquet** recording (one row per movement event; run metadata — schema version, date, seed, `run_hash` — embedded in Parquet KV metadata). `load_recording` reconstructs the movement stream and, for any train+time, its position (dwelling, or moving between two stops with an interpolation fraction; plus lat/lon interpolation). `dbsim run --record PATH`; `dbsim replay PATH [--at HH:MM]`.
+- **Deliverable:** a recording file + `notebooks/replay.ipynb` (network-activity curve, a train's trajectory, a map-snapshot of interpolated positions). ✅
+- **Acceptance:** the recording fully reconstructs the run and reloads to identical analysis — round-trip movement stream is byte-identical, `run_hash` and derived metrics match. ✅
+  - On the real fv feed: a national run (17,354 events) records + replays; at 08:00, 241 trains' positions are reconstructed (e.g. "Mannheim Hbf → Stuttgart Hbf 71%").
 
 ### M1.4 — ⭐ Validation against GTFS-RT · `L`
 *The milestone that makes this a study tool rather than a toy.*
