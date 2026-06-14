@@ -10,6 +10,14 @@ from dbsim.model.graph import (
     TimetableGraph,
     format_hms,
 )
+from dbsim.model.micro import (
+    Block,
+    MicroRoute,
+    MicroSignal,
+    MicroSwitch,
+    MicroZone,
+    curate_pfaffingen_loop,
+)
 from dbsim.model.segments import (
     Segment,
     build_corridor_segments,
@@ -19,10 +27,15 @@ from dbsim.model.segments import (
 from dbsim.model.timetable import StationCall, StopCall, Timetable
 
 __all__ = [
+    "Block",
     "EventNode",
     "GraphStats",
     "Journey",
     "JourneyLeg",
+    "MicroRoute",
+    "MicroSignal",
+    "MicroSwitch",
+    "MicroZone",
     "Segment",
     "StationCall",
     "StopCall",
@@ -30,6 +43,7 @@ __all__ = [
     "TimetableGraph",
     "build_corridor_segments",
     "classify_segment",
+    "curate_pfaffingen_loop",
     "format_hms",
     "segment_graph",
 ]

@@ -38,13 +38,23 @@ from dbsim.engine import (
     load_schedules,
     meso_corridor_from_segments,
 )
-from dbsim.ingest import FEEDS, bbox_around, capture, download_feed, fetch_railways, load_feed
+from dbsim.ingest import (
+    FEEDS,
+    bbox_around,
+    capture,
+    download_feed,
+    fetch_railway_features,
+    fetch_railways,
+    load_feed,
+)
 from dbsim.model import (
     Timetable,
     TimetableGraph,
     build_corridor_segments,
+    curate_pfaffingen_loop,
     format_hms,
 )
+from dbsim.model.micro import PFAFFINGEN_BBOX
 from dbsim.record import hash_run, load_recording, write_recording
 from dbsim.scenario import Scenario, build_corridor_for_scenario, run_scenario
 from dbsim.seed import DEFAULT_SEED
@@ -362,6 +372,27 @@ def _run_segments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _run_micro(args: argparse.Namespace) -> None:
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+
+    print(f"micro zone: {zone.name}  (boundaries: {zone.west_boundary} <-> {zone.east_boundary})")
+    print(f"  {len(zone.signals)} signals, {len(zone.switches)} switches (from OSM)")
+    print("  blocks:")
+    for b in zone.blocks:
+        plat = " [platform]" if b.has_platform else ""
+        print(f"    {b.id:<14} {b.kind:<9} {b.length_m:6.0f} m  {b.max_speed_kmh} km/h{plat}")
+    print("  routes:")
+    for r in zone.routes:
+        print(f"    {r.name}: {r.direction} via track {r.loop_track}  [{' -> '.join(r.blocks)}]")
+    issues = zone.validate()
+    if issues:
+        print(f"  validation: {issues}")
+    else:
+        print("  validation: VALID passing loop")
+
+
 def _run_capacity(args: argparse.Namespace) -> None:
     names = tuple(s.strip() for s in args.stations.split(";"))
     with Timetable(args.db) as tt:
@@ -630,6 +661,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cap.add_argument("--window", type=int, default=3600, help="Analysis window seconds.")
     p_cap.add_argument("--threshold", type=float, default=0.75, help="UIC occupancy threshold.")
     p_cap.set_defaults(func=_run_capacity)
+
+    p_micro = sub.add_parser("micro", help="Build & validate the curated micro zone (M3.1).")
+    p_micro.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
+    p_micro.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
+    p_micro.set_defaults(func=_run_micro)
 
     return parser
 

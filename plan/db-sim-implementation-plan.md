@@ -202,10 +202,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** a zone chosen from measured evidence. ✅
   - **Chosen: Ammertalbahn, scoped to the Pfäffingen passing loop** (97 switches / 247 signals over the line; signal direction known for 99%; loops cleanly mapped at Pfäffingen & Altingen). Frankfurt throat **rejected** (267 switches in one node — well-mapped but brutal).
 
-### M3.1 — Pick & curate one zone · `L`
-- [ ] Curate the Pfäffingen-loop micro-infrastructure from OSM/OpenRailwayMap (tracks, switches, signals, platform tracks, blocks) — zone already chosen in M3.1.0.
-- **Deliverable:** a validated micro-infrastructure model of the zone.
-- **Acceptance:** track layout, signal/block positions match reality on inspection.
+### M3.1 — Pick & curate one zone · `L` ✅
+- [x] Curated `MicroZone` of the Pfäffingen loop (`model/micro.py`): blocks (2 single-track approaches + 2 loop tracks), routes (2 directions × 2 tracks), real OSM signals + switches. Topology hand-curated; loop length (289 m, switch-to-switch) and speeds (through 70, passing 50 km/h) grounded in OSM. `validate()` checks the passing-loop structure. `dbsim micro`.
+- **Deliverable:** a validated micro-infrastructure model of the zone. ✅
+- **Acceptance:** track layout, signal/block positions match reality on inspection. ✅
+  - Built from real OSM: through track (70 km/h, **platform**) + passing track (50 km/h), 289 m loop, 15 signals, 4 switches — a Kreuzungsbahnhof matching the real Pfäffingen on inspection. `validate()` → valid passing loop.
 
 ### M3.2 — Microscopic movement & blocking-time model · `L`
 - [ ] Speed/acceleration profiles; block occupancy via blocking-time theory.
