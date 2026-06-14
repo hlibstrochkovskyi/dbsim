@@ -208,10 +208,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** track layout, signal/block positions match reality on inspection. ✅
   - Built from real OSM: through track (70 km/h, **platform**) + passing track (50 km/h), 289 m loop, 15 signals, 4 switches — a Kreuzungsbahnhof matching the real Pfäffingen on inspection. `validate()` → valid passing loop.
 
-### M3.2 — Microscopic movement & blocking-time model · `L`
-- [ ] Speed/acceleration profiles; block occupancy via blocking-time theory.
-- **Deliverable:** micro-level runs through the zone with blocking-time stairways.
-- **Acceptance:** the blocking-time stairway for a train sequence is correct and visualizable.
+### M3.2 — Microscopic movement & blocking-time model · `L` ✅
+- [x] `engine/blocking.py`: `micro_trajectory` runs a train over a route's blocks with a real speed profile (forward accel / backward braking passes honouring per-block limits, train accel/decel/max-speed/length); `blocking_times` gives each block's blocking interval (approach-reserved − setup → cleared + release). `minimum_headway_s` (critical block). Stairway render (`analysis/stairway.py`). `dbsim stairway`. **Micro-engine determinism test ships** (per Phase-3 discipline).
+- **Deliverable:** micro-level runs through the zone with blocking-time stairways. ✅
+- **Acceptance:** the blocking-time stairway for a train sequence is correct and visualizable. ✅
+  - Pfäffingen through route: 66 s run, **56 s minimum headway** (set by the slower loop block); rendered stairway shows the leader + a follower whose blocking bars just touch — textbook blocking-time staircase.
 
 ### M3.3 — Deadlock avoidance · `M`
 - [ ] Time-window reservation / lookahead on single-track and critical resources.

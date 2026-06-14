@@ -14,6 +14,13 @@ Public surface:
 
 from __future__ import annotations
 
+from dbsim.engine.blocking import (
+    BlockingInterval,
+    BlockTraversal,
+    TrainDynamics,
+    blocking_times,
+    micro_trajectory,
+)
 from dbsim.engine.events import Event
 from dbsim.engine.loop import RunResult, Simulation
 from dbsim.engine.meso import (
@@ -36,6 +43,8 @@ from dbsim.engine.trains import (
 )
 
 __all__ = [
+    "BlockTraversal",
+    "BlockingInterval",
     "Closure",
     "Connection",
     "Event",
@@ -50,7 +59,10 @@ __all__ = [
     "RunResult",
     "ScheduledStop",
     "Simulation",
+    "TrainDynamics",
     "TrainSchedule",
+    "blocking_times",
     "load_schedules",
     "meso_corridor_from_segments",
+    "micro_trajectory",
 ]

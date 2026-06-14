@@ -16,18 +16,23 @@ from pathlib import Path
 
 from dbsim.analysis import (
     DEFAULT_CORRIDOR,
+    StairwayTrain,
     build_corridor,
     detect_conflicts,
     extract_train_paths,
+    minimum_headway_s,
     planned_occupations,
     render_bildfahrplan,
     render_scatter,
+    render_stairway,
     run_validation,
     segment_entries_from_paths,
     uic406_occupancy,
 )
 from dbsim.dispatch import DISPATCHERS
 from dbsim.engine import (
+    BlockingInterval,
+    BlockTraversal,
     Closure,
     Event,
     MacroSimulation,
@@ -35,8 +40,11 @@ from dbsim.engine import (
     MesoTrain,
     PrimaryDelay,
     Simulation,
+    TrainDynamics,
+    blocking_times,
     load_schedules,
     meso_corridor_from_segments,
+    micro_trajectory,
 )
 from dbsim.ingest import (
     FEEDS,
@@ -372,6 +380,39 @@ def _run_segments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _run_stairway(args: argparse.Namespace) -> None:
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+    route = next(r for r in zone.routes if r.name == args.route)
+    dyn = TrainDynamics()
+    through = 999.0  # run through at line speed
+
+    def block_for(start: float) -> tuple[list[BlockTraversal], list[BlockingInterval]]:
+        traj = micro_trajectory(
+            zone, route, dyn, start_time_s=start, entry_speed_ms=through, exit_speed_ms=through
+        )
+        return traj, blocking_times(traj, dyn)
+
+    lead_traj, lead_block = block_for(0.0)
+    _, foll0 = block_for(0.0)
+    headway = minimum_headway_s(lead_block, foll0)
+    foll_traj, foll_block = block_for(headway)
+
+    run_time = lead_traj[-1].exit_s - lead_traj[0].enter_s
+    print(f"route {route.name} ({route.direction}): run time {run_time:.0f} s")
+    print(f"minimum headway (critical block): {headway:.0f} s")
+    render_stairway(
+        [
+            StairwayTrain("train 1", tuple(lead_traj), tuple(lead_block)),
+            StairwayTrain("train 2", tuple(foll_traj), tuple(foll_block)),
+        ],
+        args.out,
+        title=f"Blocking-time stairway — Pfäffingen {route.name}",
+    )
+    print(f"stairway -> {args.out}")
+
+
 def _run_micro(args: argparse.Namespace) -> None:
     ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
     features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
@@ -666,6 +707,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_micro.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
     p_micro.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
     p_micro.set_defaults(func=_run_micro)
+
+    p_stair = sub.add_parser("stairway", help="Render a blocking-time stairway (M3.2).")
+    p_stair.add_argument("--route", default="WE_t1", help="Micro route name (e.g. WE_t1).")
+    p_stair.add_argument("--out", type=Path, default=Path("viz/stairway.png"), help="PNG path.")
+    p_stair.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
+    p_stair.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
+    p_stair.set_defaults(func=_run_stairway)
 
     return parser
 
