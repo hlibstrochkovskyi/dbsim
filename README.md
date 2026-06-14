@@ -117,6 +117,9 @@ uv run dbsim meso --db data/processed/gtfs-free.duckdb \
 uv run dbsim meso --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg" \
     --dispatcher priority --close 1:0:1800
+
+# Run a declarative disruption scenario from a file (M2.5).
+uv run dbsim scenario scenarios/ammertal-closure.json --db data/processed/gtfs-free.duckdb
 ```
 
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
@@ -149,7 +152,8 @@ Phase 2 in progress:
 - **M2.2 — running-time & headway model** ✅ — segment occupancy as a contended resource; single-track meets resolve at stations.
 - **M2.3 — conflict detection** ✅ — blocking-time over-saturation detection; `dbsim meso` reports conflicts before dispatching.
 - **M2.4 — priority-based dispatcher (v1)** ✅ — swappable `Dispatcher` interface; line closures held conflict-free.
-- **M2.5 — disruption scenario format** — next.
+- **M2.5 — disruption scenario format** ✅ — declarative JSON scenarios (closures, speed restrictions).
+- **M2.6 — UIC 406 capacity analysis** — next.
 
 ## Repository layout
 

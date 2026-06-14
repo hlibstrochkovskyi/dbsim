@@ -174,10 +174,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
   - Real Ammertalbahn, segment closed [0,1800]: both trains held then complete (2/2), no over-capacity. Swapping priority↔fifo changes which train goes first after reopen (FWD vs BWD). Determinism preserved.
 - *Note:* "held" only (corridor has no alternative path); rerouting needs network alternatives (the macro graph) — a later extension. Smarter strategies (alternative-graph M4.1, MILP/CP M4.2) implement the same interface.
 
-### M2.5 — Disruption scenario format · `S`
-- [ ] Declarative scenarios (closures, speed restrictions, blocked segments).
-- **Deliverable:** scenario files you can run and compare.
-- **Acceptance:** a scenario file reproducibly produces the intended disruption.
+### M2.5 — Disruption scenario format · `S` ✅
+- [x] Declarative JSON `Scenario` (`scenario/`): corridor (station names + headway), trains (origin/dest/entry/priority), disruptions (segment **closures** + **speed restrictions** as running-time factors), dispatcher + seed. JSON round-trip; the runner resolves the corridor from OSM then applies the disruptions. `dbsim scenario FILE`. Example: [`scenarios/ammertal-closure.json`](../scenarios/ammertal-closure.json).
+- **Deliverable:** scenario files you can run and compare. ✅
+- **Acceptance:** a scenario file reproducibly produces the intended disruption. ✅
+  - The example reproducibly: closes Pfäffingen–Entringen for 30 min (trains held), slows Tübingen–Unterjesingen ×1.5 (199 s → 298 s), runs two opposing RBs to completion conflict-free. Deterministic; round-trips through JSON.
 
 ### M2.6 — UIC 406 capacity analysis · `M`
 - [ ] Blocking-time compression on a corridor to compute capacity utilization.

@@ -1,0 +1,29 @@
+{
+  "name": "ammertal-closure",
+  "description": "Ammertalbahn (single-track): a 30-min closure of the Pfaeffingen-Entringen segment while two regional trains run in opposite directions.",
+  "corridor": {
+    "stations": [
+      "Tübingen Hbf",
+      "Unterjesingen Mitte",
+      "Pfäffingen",
+      "Entringen",
+      "Altingen(Württ)",
+      "Gültstein",
+      "Herrenberg"
+    ],
+    "headway_s": 120
+  },
+  "trains": [
+    {"id": "RB-north", "from": "Tübingen Hbf", "to": "Herrenberg", "entry_time_s": 0, "priority": 1, "dwell_s": 30},
+    {"id": "RB-south", "from": "Herrenberg", "to": "Tübingen Hbf", "entry_time_s": 0, "priority": 0, "dwell_s": 30}
+  ],
+  "disruptions": {
+    "closures": [
+      {"segment": 2, "start_s": 0, "end_s": 1800}
+    ],
+    "speed_restrictions": [
+      {"segment": 0, "factor": 1.5}
+    ]
+  },
+  "dispatch": {"dispatcher": "priority", "seed": 0}
+}

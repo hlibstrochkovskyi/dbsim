@@ -44,6 +44,7 @@ from dbsim.model import (
     format_hms,
 )
 from dbsim.record import hash_run, load_recording, write_recording
+from dbsim.scenario import Scenario, build_corridor_for_scenario, run_scenario
 from dbsim.seed import DEFAULT_SEED
 
 #: Number of "tick" events the demo chains together.
@@ -359,6 +360,37 @@ def _run_segments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _run_scenario_cmd(args: argparse.Namespace) -> None:
+    scenario = Scenario.load(args.file)
+    corridor = build_corridor_for_scenario(scenario, args.db, cache_path=args.cache)
+    meso = run_scenario(scenario, corridor)
+
+    print(f"scenario: {scenario.name}")
+    if scenario.description:
+        print(f"  {scenario.description}")
+    print(
+        f"  dispatcher={scenario.dispatcher} seed={scenario.seed} "
+        f"closures={len(scenario.closures)} speed_restrictions={len(scenario.speed_restrictions)}"
+    )
+    print("  corridor segments (running times reflect speed restrictions):")
+    for seg in meso.corridor.segments:
+        kind = "single-track" if seg.capacity <= 1 else f"{seg.capacity}-track"
+        print(f"    seg{seg.index} {seg.name}: {kind}, run {seg.running_time_s}s")
+
+    done = meso.completed_trains()
+    print(f"  trains: {len(scenario.trains)}  completed: {sorted(done)} ({len(done)})")
+    for train in scenario.trains:
+        arrivals = [
+            m.time_s for m in meso.movements if m.train_id == train.id and m.event == "arrive"
+        ]
+        end = max(arrivals) if arrivals else None
+        print(f"    {train.id}: {train.from_station} -> {train.to_station}, finishes {end}")
+    over = meso.overcapacity_segments()
+    print(f"  occupancy ok (no segment over capacity): {not over}")
+    if over:
+        print(f"    OVER-CAPACITY segments: {over}")
+
+
 def _parse_closure(value: str) -> Closure:
     """Parse a ``SEG:START:END`` segment-closure spec (seconds)."""
     parts = value.split(":")
@@ -542,6 +574,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Close a segment over a time window (repeatable).",
     )
     p_meso.set_defaults(func=_run_meso)
+
+    p_scn = sub.add_parser("scenario", help="Run a declarative disruption scenario (M2.5).")
+    p_scn.add_argument("file", type=Path, help="Scenario JSON file.")
+    p_scn.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
+    p_scn.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
+    p_scn.set_defaults(func=_run_scenario_cmd)
 
     return parser
 
