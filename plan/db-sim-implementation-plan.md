@@ -251,10 +251,10 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** on the same disruption, v2 produces measurably different (ideally better) delay outcomes than v1. ✅
   - Delayed high-priority train meeting an on-time opposing train on single track: v1 (priority) forces the delayed train first on both segments → makespan 3520 s, total delay 2320 s. v2 (AMCC) reorders segment B-C ([LOW,HIGH] vs v1's [HIGH,LOW]) so the on-time train uses the gap → **makespan 2320 s, total delay 1120 s — 34% / 52% better**. Deterministic; `solve_amcc.makespan ≤ solve_by_priority.makespan` always.
 
-### M4.2 — MILP / CP optimal baseline · `M`
-- [ ] Formulate dispatching as MILP (HiGHS) or CP-SAT (OR-Tools) for a small zone.
-- **Deliverable:** optimal-vs-heuristic comparison.
-- **Acceptance:** solver returns feasible optimal schedules on small instances; gap to the heuristic is quantified.
+### M4.2 — MILP / CP optimal baseline · `M` ✅
+- [x] `dispatch/optimal.py`: `solve_optimal` formulates the *same* alternative-graph instance as a CP-SAT (OR-Tools) model — one start var per operation, release + train-precedence constraints, per-resource `AddNoOverlap` over `proc+headway` intervals (the disjunctive constraint, solved exactly), minimise makespan. Single worker + fixed seed → deterministic optimal. Returns the same `AltGraphSolution` type. `dbsim optimal` (3-train benchmark) and an added CP-SAT column on `dbsim reschedule`.
+- **Deliverable:** optimal-vs-heuristic comparison. On the canonical delayed meet AMCC is **provably optimal** (matches the CP-SAT lower bound, both 2320 s vs priority 3520 s). On a harder 3-train/3-resource instance AMCC leaves a **quantified 300 s gap (15%)** below the optimum, which CP-SAT closes by reordering the contended resource.
+- **Acceptance:** solver returns feasible optimal schedules on small instances (feasibility re-checked independently in tests); gap to the heuristic is quantified (0 s on the meet, 300 s on the 3-train case). ✅
 
 ### M4.3 — Monte Carlo robustness · `M`
 - [ ] Sample primary-delay distributions (calibrated from GTFS-RT); run N seeded replications; analyze outcome distributions.

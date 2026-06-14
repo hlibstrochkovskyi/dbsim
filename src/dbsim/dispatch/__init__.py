@@ -12,6 +12,7 @@ from dbsim.dispatch.altgraph import (
     solve_by_priority,
 )
 from dbsim.dispatch.base import Dispatcher, SegmentRequest
+from dbsim.dispatch.optimal import solve_optimal
 from dbsim.dispatch.priority import FifoDispatcher, PriorityDispatcher
 
 #: Dispatchers selectable by name (e.g. on the CLI).
@@ -33,4 +34,5 @@ __all__ = [
     "build_problem_from_meso",
     "solve_amcc",
     "solve_by_priority",
+    "solve_optimal",
 ]

@@ -30,7 +30,16 @@ from dbsim.analysis import (
     uic406_occupancy,
     validate_micro_zone,
 )
-from dbsim.dispatch import DISPATCHERS, build_problem_from_meso, solve_amcc, solve_by_priority
+from dbsim.dispatch import (
+    DISPATCHERS,
+    AltGraphProblem,
+    AltGraphSolution,
+    Operation,
+    build_problem_from_meso,
+    solve_amcc,
+    solve_by_priority,
+    solve_optimal,
+)
 from dbsim.engine import (
     BlockingInterval,
     BlockTraversal,
@@ -479,25 +488,69 @@ def _run_reschedule(args: argparse.Namespace) -> None:
 
     v1 = solve_by_priority(problem, priority)
     v2 = solve_amcc(problem)
+    opt = solve_optimal(problem)
     free = {
         t: problem.release[t] + sum(o.proc_s for o in problem.train_ops[t])
         for t in problem.train_ops
     }
 
-    def total_delay(sol: object) -> int:
-        return sum(sol.completion[t] - free[t] for t in free)  # type: ignore[attr-defined]
+    def total_delay(sol: AltGraphSolution) -> int:
+        return sum(sol.completion[t] - free[t] for t in free)
 
     print(f"rescheduling under a {args.delay} s delay to the high-priority train:")
-    print(f"  {'metric':<16} {'v1 priority':>12} {'v2 alt-graph':>14}")
-    print(f"  {'makespan (s)':<16} {v1.makespan:>12,} {v2.makespan:>14,}")
-    print(f"  {'total delay (s)':<16} {total_delay(v1):>12,} {total_delay(v2):>14,}")
+    print(f"  {'metric':<16} {'v1 priority':>12} {'v2 alt-graph':>14} {'CP-SAT optimal':>16}")
+    print(f"  {'makespan (s)':<16} {v1.makespan:>12,} {v2.makespan:>14,} {opt.makespan:>16,}")
+    print(
+        f"  {'total delay (s)':<16} {total_delay(v1):>12,} "
+        f"{total_delay(v2):>14,} {total_delay(opt):>16,}"
+    )
     print(f"  segment B-C order:  v1={v1.resource_order['1']}  v2={v2.resource_order['1']}")
     if v2.makespan < v1.makespan:
         gain = (1 - v2.makespan / v1.makespan) * 100
         sooner = v1.makespan - v2.makespan
-        print(f"  -> v2 clears the disruption {sooner} s sooner ({gain:.0f}% better)")
+        print(f"  -> v2 clears the disruption {sooner} s sooner than v1 ({gain:.0f}% better)")
     elif v2.makespan == v1.makespan:
         print("  -> v2 matches v1 on this instance")
+    gap = v2.makespan - opt.makespan
+    if gap == 0:
+        print("  -> v2 (AMCC) is provably OPTIMAL here: it matches the CP-SAT lower bound")
+    else:
+        print(f"  -> CP-SAT proves a {gap} s better schedule exists (AMCC gap)")
+
+
+# A hand-checked 3-train instance (reproducible: random seed 77) on three shared
+# resources. AMCC is greedy here and leaves a quantifiable gap below the optimum.
+def _optimal_benchmark_problem() -> AltGraphProblem:
+    return AltGraphProblem(
+        train_ops={
+            "A": [Operation("A", "S2", 300), Operation("A", "S1", 300), Operation("A", "S3", 600)],
+            "B": [Operation("B", "S1", 600), Operation("B", "S3", 300)],
+            "C": [Operation("C", "S1", 300), Operation("C", "S2", 600)],
+        },
+        release={"A": 200, "B": 200, "C": 200},
+        headway_s=120,
+    )
+
+
+def _run_optimal(_args: argparse.Namespace) -> None:
+    problem = _optimal_benchmark_problem()
+    v2 = solve_amcc(problem)
+    opt = solve_optimal(problem)
+    print("optimal-vs-heuristic on a 3-train, 3-resource instance:")
+    for t, ops in problem.train_ops.items():
+        route = " ".join(f"{o.resource}({o.proc_s})" for o in ops)
+        print(f"  train {t}: release={problem.release[t]:>4}  {route}")
+    print(f"  {'metric':<16} {'v2 AMCC':>10} {'CP-SAT optimal':>16}")
+    print(f"  {'makespan (s)':<16} {v2.makespan:>10,} {opt.makespan:>16,}")
+    gap = v2.makespan - opt.makespan
+    pct = gap / opt.makespan * 100 if opt.makespan else 0.0
+    print(f"  optimality gap:   {gap} s  ({pct:.0f}% above the proven optimum)")
+    print(f"  AMCC S1 order:    {v2.resource_order['S1']}")
+    print(f"  optimal S1 order: {opt.resource_order['S1']}")
+    print(
+        "  -> the heuristic is fast and near-optimal, but CP-SAT closes the last "
+        f"{gap} s by reordering the contended resource."
+    )
 
 
 def _run_micro_validate(args: argparse.Namespace) -> None:
@@ -892,6 +945,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--delay", type=int, default=1000, help="Primary delay (s) on the express."
     )
     p_resch.set_defaults(func=_run_reschedule)
+
+    p_opt = sub.add_parser(
+        "optimal", help="CP-SAT optimal vs AMCC heuristic on a 3-train zone (M4.2)."
+    )
+    p_opt.set_defaults(func=_run_optimal)
 
     return parser
 

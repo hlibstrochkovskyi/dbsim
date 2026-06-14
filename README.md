@@ -129,6 +129,17 @@ uv run dbsim capacity --db data/processed/gtfs-free.duckdb --date 20260616 \
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
+### Rescheduling: heuristic vs optimal (M4.1 / M4.2)
+
+```bash
+# Alternative-graph AMCC (v2) vs the priority rule (v1) on a delayed meet,
+# with the CP-SAT optimal makespan as a lower bound (AMCC is optimal here).
+uv run dbsim reschedule --delay 1000
+
+# Optimal-vs-heuristic on a harder 3-train zone: CP-SAT quantifies the AMCC gap.
+uv run dbsim optimal
+```
+
 ## Project status
 
 Phase 0 in progress:
@@ -175,7 +186,8 @@ Phase 3 in progress:
 Phase 4 in progress:
 
 - **M4.1 — alternative-graph dispatcher (v2)** ✅ — AMCC rescheduling beats the priority rule on a disruption (`dbsim reschedule`).
-- **M4.2 — MILP / CP optimal baseline** — next.
+- **M4.2 — MILP / CP optimal baseline** ✅ — CP-SAT (OR-Tools) optimum: AMCC is provably optimal on the meet, with a quantified 15% gap on a harder 3-train case (`dbsim optimal`).
+- **M4.3 — Monte Carlo robustness** — next.
 
 ## Repository layout
 

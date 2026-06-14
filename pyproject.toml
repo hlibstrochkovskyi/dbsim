@@ -10,6 +10,7 @@ dependencies = [
     "duckdb>=1.5.3",
     "gtfs-realtime-bindings>=2.0.0",
     "matplotlib>=3.11.0",
+    "ortools>=9.15.6755",
     "pyproj>=3.7.2",
     "rustworkx>=0.17.1",
     "shapely>=2.1.2",
@@ -68,7 +69,7 @@ warn_unreachable = true
 
 # Third-party libraries without type stubs.
 [[tool.mypy.overrides]]
-module = ["google.transit.*", "shapely.*", "pyproj.*"]
+module = ["google.transit.*", "shapely.*", "pyproj.*", "ortools.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
