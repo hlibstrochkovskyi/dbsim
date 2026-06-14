@@ -61,6 +61,12 @@ class DelayModel:
             return 0.0
         return self.p_delayed * (sum(self.magnitudes_s) / len(self.magnitudes_s))
 
+    def sample_one(self, rng: Random) -> int:
+        """Draw a single primary delay (s): 0 if on time, else a bootstrap magnitude."""
+        if not self.magnitudes_s or rng.random() >= self.p_delayed:
+            return 0
+        return rng.choice(self.magnitudes_s)
+
     def sample_primary(self, schedules: Sequence[TrainSchedule], rng: Random) -> list[PrimaryDelay]:
         """Draw an independent set of origin primary delays for one replication."""
         out: list[PrimaryDelay] = []

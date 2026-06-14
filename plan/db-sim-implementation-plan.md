@@ -261,11 +261,13 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Deliverable:** a robustness study ([`docs/robustness-study.md`](../docs/robustness-study.md)) — RT-calibrated (P(late)=12.7%, tail to 123 min); on the Frankfurt–Hannover corridor the network total-delay distribution is strongly right-skewed (p50 173 min, p95 1148 min, max 3513 min over 500 reps), and **Frankfurt Hbf is the most fragile node** (top-5 hotspot on 39% of days).
 - **Acceptance:** distributional results are stable (reproducible from `base_seed` — verified by output hash; two independent halves agree within 15%) and fragile points are identified (non-degenerate ranking led by the corridor's principal junction). ✅
 
-### M4.4 — ⭐ Strategy comparison study · `M`
+### M4.4 — ⭐ Strategy comparison study · `M` ✅
 *The tool's proof of value.*
-- [ ] Compare dispatching strategies / timetable variants under disruption.
-- **Deliverable:** a written study answering one sharp question (e.g. "how does a 20-min delay to ICE 599 at Frankfurt cascade over 3 hours, and which dispatching rule contains it best?").
-- **Acceptance:** a reproducible study with clear conclusions.
+- [x] `analysis/strategy_study.py`: composes every Phase-4 piece — the three dispatchers (priority/AMCC/CP-SAT optimal) on the same alternative graph, evaluated over a Monte Carlo ensemble (M4.3) of RT-calibrated entry-delay disruptions. Metric = **clearance delay** (makespan minus the free-running makespan), for which the makespan-optimal CP-SAT solver is a true lower bound. `dbsim study`.
+- **Deliverable:** a written study ([`docs/strategy-comparison-study.md`](../docs/strategy-comparison-study.md)) answering *"on a contended single-track corridor under realistic delays, which dispatching rule best contains the disruption, and how close is the heuristic to the optimum?"*
+- **Acceptance:** reproducible (byte-identical from `base_seed`; the lower-bound holds on every replication, not just on average) with a clear conclusion — alternative-graph dispatching cuts clearance delay **~59 %** vs the priority rule (sustained into the tail), and the fast AMCC heuristic **matched the CP-SAT optimum on 100 %** of disrupted days. ✅
+
+**Phase 4 complete.**
 
 ---
 

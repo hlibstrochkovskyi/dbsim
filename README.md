@@ -155,6 +155,19 @@ uv run dbsim montecarlo --db data/processed/gtfs-fv.duckdb --date 20260616 \
 
 The methodology and results are written up in [`docs/robustness-study.md`](docs/robustness-study.md).
 
+### Strategy comparison study (M4.4)
+
+```bash
+# The capstone: priority vs AMCC vs CP-SAT optimal dispatching, compared over a
+# Monte Carlo ensemble of RT-calibrated disruptions on a contended corridor.
+uv run dbsim study --reps 1000 --snapshot data/raw/gtfsrt/<date>/snapshot-*.pb
+
+# Or with a manual disruption model (no snapshot needed):
+uv run dbsim study --reps 300 --p-delayed 0.4 --mean-delay 600
+```
+
+The written study is [`docs/strategy-comparison-study.md`](docs/strategy-comparison-study.md).
+
 ## Project status
 
 Phase 0 in progress:
@@ -203,7 +216,9 @@ Phase 4 in progress:
 - **M4.1 — alternative-graph dispatcher (v2)** ✅ — AMCC rescheduling beats the priority rule on a disruption (`dbsim reschedule`).
 - **M4.2 — MILP / CP optimal baseline** ✅ — CP-SAT (OR-Tools) optimum: AMCC is provably optimal on the meet, with a quantified 15% gap on a harder 3-train case (`dbsim optimal`).
 - **M4.3 — Monte Carlo robustness** ✅ — RT-calibrated primary-delay model over N seeded replications; delay percentiles + fragility hotspots ([`docs/robustness-study.md`](docs/robustness-study.md)).
-- **M4.4 — ⭐ strategy comparison study** — next.
+- **M4.4 — ⭐ strategy comparison study** ✅ — priority vs AMCC vs CP-SAT optimal under disruption: alt-graph dispatching cuts clearance delay ~59%, AMCC matches the optimum on 100% of days ([`docs/strategy-comparison-study.md`](docs/strategy-comparison-study.md)).
+
+**Phase 4 complete.**
 
 ## Repository layout
 

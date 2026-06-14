@@ -37,6 +37,13 @@ from dbsim.analysis.montecarlo import (
     run_montecarlo,
 )
 from dbsim.analysis.stairway import StairwayTrain, minimum_headway_s, render_stairway
+from dbsim.analysis.strategy_study import (
+    StrategyStudyResult,
+    StudyScenario,
+    default_scenario,
+    format_report,
+    run_strategy_study,
+)
 from dbsim.analysis.validation import (
     ValidationPair,
     ValidationReport,
@@ -57,13 +64,17 @@ __all__ = [
     "RepOutcome",
     "SegmentOccupancy",
     "StairwayTrain",
+    "StrategyStudyResult",
+    "StudyScenario",
     "TrainPath",
     "ValidationPair",
     "ValidationReport",
     "build_corridor",
     "calibrate",
+    "default_scenario",
     "detect_conflicts",
     "extract_train_paths",
+    "format_report",
     "micro_min_headway_s",
     "minimum_headway_s",
     "origin_delays_from_snapshot",
@@ -72,6 +83,7 @@ __all__ = [
     "render_scatter",
     "render_stairway",
     "run_montecarlo",
+    "run_strategy_study",
     "run_validation",
     "segment_entries_from_paths",
     "uic406_occupancy",

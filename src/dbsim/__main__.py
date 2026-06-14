@@ -20,8 +20,10 @@ from dbsim.analysis import (
     StairwayTrain,
     build_corridor,
     calibrate,
+    default_scenario,
     detect_conflicts,
     extract_train_paths,
+    format_report,
     minimum_headway_s,
     origin_delays_from_snapshot,
     planned_occupations,
@@ -29,6 +31,7 @@ from dbsim.analysis import (
     render_scatter,
     render_stairway,
     run_montecarlo,
+    run_strategy_study,
     run_validation,
     segment_entries_from_paths,
     uic406_occupancy,
@@ -622,6 +625,26 @@ def _run_optimal(_args: argparse.Namespace) -> None:
     )
 
 
+def _run_study(args: argparse.Namespace) -> None:
+    if args.snapshot is not None:
+        model = calibrate(origin_delays_from_snapshot(args.snapshot), threshold_s=args.threshold)
+        source = f"GTFS-RT snapshot {args.snapshot.name}"
+    else:
+        model = DelayModel(
+            p_delayed=args.p_delayed,
+            magnitudes_s=(args.mean_delay,),
+            threshold_s=args.threshold,
+        )
+        source = "manual flags"
+    result = run_strategy_study(default_scenario(), model, n_reps=args.reps, base_seed=args.seed)
+    print(
+        "Strategy comparison — priority vs AMCC vs CP-SAT optimal under disruption "
+        f"(base seed {args.seed})"
+    )
+    for line in format_report(result, source=source):
+        print(line)
+
+
 def _run_micro_validate(args: argparse.Namespace) -> None:
     ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
     features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
@@ -1043,6 +1066,25 @@ def _build_parser() -> argparse.ArgumentParser:
         "optimal", help="CP-SAT optimal vs AMCC heuristic on a 3-train zone (M4.2)."
     )
     p_opt.set_defaults(func=_run_optimal)
+
+    p_study = sub.add_parser(
+        "study", help="Strategy comparison under disruption: priority/AMCC/optimal (M4.4)."
+    )
+    p_study.add_argument("--reps", type=int, default=300, help="Monte Carlo replications.")
+    p_study.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Experiment base seed.")
+    p_study.add_argument(
+        "--snapshot", type=Path, default=None, help="GTFS-RT .pb to calibrate the delay model."
+    )
+    p_study.add_argument(
+        "--threshold", type=int, default=60, help="Origin delay (s) counted as a primary delay."
+    )
+    p_study.add_argument(
+        "--p-delayed", type=float, default=0.4, help="Manual P(train late) when no --snapshot."
+    )
+    p_study.add_argument(
+        "--mean-delay", type=int, default=600, help="Manual primary delay (s) when no --snapshot."
+    )
+    p_study.set_defaults(func=_run_study)
 
     return parser
 
