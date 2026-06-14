@@ -10,7 +10,9 @@ dependencies = [
     "duckdb>=1.5.3",
     "gtfs-realtime-bindings>=2.0.0",
     "matplotlib>=3.11.0",
+    "pyproj>=3.7.2",
     "rustworkx>=0.17.1",
+    "shapely>=2.1.2",
 ]
 
 [project.scripts]
@@ -64,9 +66,9 @@ warn_unused_configs = true
 warn_redundant_casts = true
 warn_unreachable = true
 
-# The GTFS-RT protobuf bindings ship no type stubs.
+# Third-party libraries without type stubs.
 [[tool.mypy.overrides]]
-module = "google.transit.*"
+module = ["google.transit.*", "shapely.*", "pyproj.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

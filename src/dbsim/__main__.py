@@ -23,8 +23,13 @@ from dbsim.analysis import (
     run_validation,
 )
 from dbsim.engine import Event, MacroSimulation, PrimaryDelay, Simulation, load_schedules
-from dbsim.ingest import FEEDS, capture, download_feed, load_feed
-from dbsim.model import Timetable, TimetableGraph, format_hms
+from dbsim.ingest import FEEDS, bbox_around, capture, download_feed, fetch_railways, load_feed
+from dbsim.model import (
+    Timetable,
+    TimetableGraph,
+    build_corridor_segments,
+    format_hms,
+)
 from dbsim.record import hash_run, load_recording, write_recording
 from dbsim.seed import DEFAULT_SEED
 
@@ -304,6 +309,39 @@ def _run_validate(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `segments` — track-segment model from OSM (M2.1)
+# ---------------------------------------------------------------------------
+
+
+def _run_segments(args: argparse.Namespace) -> None:
+    names = tuple(s.strip() for s in args.stations.split(";"))
+    coords: list[tuple[str, float, float]] = []
+    with Timetable(args.db) as tt:
+        for name in names:
+            row = tt.connection.execute(
+                "SELECT stop_lat, stop_lon FROM stops "
+                "WHERE stop_name = ? AND stop_lat IS NOT NULL LIMIT 1",
+                [name],
+            ).fetchone()
+            if row is None:
+                raise SystemExit(f"station not found in feed: {name!r}")
+            coords.append((name, float(row[0]), float(row[1])))
+
+    bbox = bbox_around([(la, lo) for _, la, lo in coords], margin_deg=0.02)
+    ways = fetch_railways(bbox, cache_path=args.cache)
+    segments = build_corridor_segments(coords, ways)
+    print(f"corridor: {len(coords)} stations, {len(ways):,} OSM rail ways")
+    for s in segments:
+        kind = "single-track" if s.single_track else f"{s.tracks}-track"
+        power = "elec" if s.electrified else "diesel"
+        speed = f"{s.max_speed_kmh}km/h" if s.max_speed_kmh else "?"
+        print(
+            f"  {s.from_station} -> {s.to_station}: {kind}  "
+            f"ref={s.line_ref}  {s.length_km:.1f}km  {speed}  {power}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -399,6 +437,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_val.add_argument("--scatter", type=Path, default=None, help="Write a scatter PNG.")
     p_val.set_defaults(func=_run_validate)
+
+    p_seg = sub.add_parser("segments", help="Track-segment model from OSM (M2.1).")
+    p_seg.add_argument("--stations", required=True, help="Ordered station names (semicolon-sep).")
+    p_seg.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
+    p_seg.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
+    p_seg.set_defaults(func=_run_segments)
 
     return parser
 

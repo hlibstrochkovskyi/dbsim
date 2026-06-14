@@ -102,6 +102,14 @@ uv run dbsim validate data/raw/gtfsrt/today/snapshot-*.pb \
 
 The methodology and results are written up in [`docs/validation-report.md`](docs/validation-report.md).
 
+### Track-segment model from OSM (M2.1)
+
+```bash
+# Classify single- vs double-track per station-to-station segment from OpenStreetMap.
+uv run dbsim segments --db data/processed/gtfs-free.duckdb \
+    --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
+```
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -124,7 +132,12 @@ Phase 1 in progress:
 - **M1.4 — ⭐ validation against GTFS-RT** ✅ — sim vs observed delays correlate (r≈0.47); see [`docs/validation-report.md`](docs/validation-report.md).
 - **M1.5 — scale to national macro + profile** ✅ — national rail day in ~8 s; **Rust port not needed** ([`docs/performance-profile.md`](docs/performance-profile.md)).
 
-**Phase 1 complete.** Next: Phase 2 (mesoscopic capacity & dispatching).
+**Phase 1 complete.**
+
+Phase 2 in progress:
+
+- **M2.1 — track-segment model from OSM** ✅ — single/double-track per segment via cross-section counting.
+- **M2.2 — running-time & headway model** — next.
 
 ## Repository layout
 

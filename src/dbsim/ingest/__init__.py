@@ -11,16 +11,28 @@ from dbsim.ingest.gtfsrt import (
     parse_snapshot,
     read_snapshot_file,
 )
+from dbsim.ingest.osm import (
+    OVERPASS_URL,
+    RailWay,
+    bbox_around,
+    fetch_railways,
+    parse_overpass,
+)
 
 __all__ = [
     "DEFAULT_RT_URL",
     "FEEDS",
+    "OVERPASS_URL",
+    "RailWay",
     "TripDelay",
+    "bbox_around",
     "capture",
     "download_feed",
     "feed_url",
+    "fetch_railways",
     "fetch_snapshot",
     "load_feed",
+    "parse_overpass",
     "parse_snapshot",
     "read_snapshot_file",
 ]

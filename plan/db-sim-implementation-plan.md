@@ -147,10 +147,12 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 
 *Goal: study capacity bottlenecks and disruption rerouting.*
 
-### M2.1 — Track-segment model from OSM · `M`
-- [ ] Extract line geometry, single- vs double-track, for the macro network / key corridors.
-- **Deliverable:** segments with capacity attributes attached to the graph.
-- **Acceptance:** known single-track lines correctly flagged; geometry plausible vs OpenRailwayMap.
+### M2.1 — Track-segment model from OSM · `M` ✅
+- [x] Fetch `railway=rail` ways (geometry + tags) via Overpass; build station-to-station `Segment`s with **track count** (cross-section method — count parallel tracks on perpendiculars, since the `tracks` tag is rarely present), electrification, line speed; attach to a `segment_graph`. `dbsim segments`.
+- **Deliverable:** segments with capacity attributes attached to the graph. ✅
+- **Acceptance:** known single-track lines correctly flagged; geometry plausible vs OpenRailwayMap. ✅
+  - Validated: the **Ammertalbahn** (Tübingen–Herrenberg, line 4633) flagged **single-track** on all 5 branch segments; the double-track Gäubahn (4860) and FFM–Hanau main line (3600) flagged 2-track. Lengths (1.5–5.5 km branch) and speeds (70–110 km/h) plausible.
+- *Note:* classification is per line `ref` (so a double main line beside a separate S-Bahn reads as double for that line, not quad). Foundation for M2.2 headway/occupancy.
 
 ### M2.2 — Running-time & headway model · `M`
 - [ ] Per-segment traversal times, minimum headways; segment occupancy as a contended resource. *(Includes the macro→segment **headway** deferred from M1.2 — done here where the occupancy model makes it principled.)*
