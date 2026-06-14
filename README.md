@@ -88,6 +88,20 @@ uv run dbsim replay data/processed/run.parquet --at 08:00 --db data/processed/gt
 
 See `notebooks/replay.ipynb` for a worked replay (activity curve, trajectories, a map snapshot).
 
+### Validate against GTFS-RT (M1.4)
+
+```bash
+# Capture a live real-time snapshot, then validate the model against it.
+# (Validation needs the FULL static feed — RT trip_ids match `free`, not `fv`.)
+uv run dbsim rt-capture data/raw/gtfsrt/today --count 1
+uv run dbsim ingest --feed free            # one-time, downloads ~268 MB
+uv run dbsim validate data/raw/gtfsrt/today/snapshot-*.pb \
+    --feed data/raw/gtfs/gtfsde-free/<date>/feed.zip --date <YYYYMMDD> \
+    --scatter viz/validation.png
+```
+
+The methodology and results are written up in [`docs/validation-report.md`](docs/validation-report.md).
+
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
 only a small `source.json` manifest pins each download.
 
@@ -107,7 +121,8 @@ Phase 1 in progress:
 - **M1.1 — event-driven core engine** ✅ — `MacroSimulation` reproduces the timetable exactly, deterministically.
 - **M1.2 — delay model & propagation** ✅ — primary delays, dwell recovery, connection holding; no acausal effects.
 - **M1.3 — recording format & replay** ✅ — self-describing Parquet recording; position reconstruction.
-- **M1.4 — ⭐ validation against GTFS-RT** — next (the make-or-break milestone).
+- **M1.4 — ⭐ validation against GTFS-RT** ✅ — sim vs observed delays correlate (r≈0.47); see [`docs/validation-report.md`](docs/validation-report.md).
+- **M1.5 — scale to national macro + profile** — next.
 
 ## Repository layout
 

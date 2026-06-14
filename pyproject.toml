@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Hlib Strochkovskyi" }]
 dependencies = [
     "duckdb>=1.5.3",
+    "gtfs-realtime-bindings>=2.0.0",
     "matplotlib>=3.11.0",
     "rustworkx>=0.17.1",
 ]
@@ -62,6 +63,11 @@ files = ["src", "tests"]
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unreachable = true
+
+# The GTFS-RT protobuf bindings ship no type stubs.
+[[tool.mypy.overrides]]
+module = "google.transit.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

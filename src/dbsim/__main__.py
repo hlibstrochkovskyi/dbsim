@@ -19,9 +19,11 @@ from dbsim.analysis import (
     build_corridor,
     extract_train_paths,
     render_bildfahrplan,
+    render_scatter,
+    run_validation,
 )
 from dbsim.engine import Event, MacroSimulation, PrimaryDelay, Simulation, load_schedules
-from dbsim.ingest import FEEDS, download_feed, load_feed
+from dbsim.ingest import FEEDS, capture, download_feed, load_feed
 from dbsim.model import Timetable, TimetableGraph, format_hms
 from dbsim.record import hash_run, load_recording, write_recording
 from dbsim.seed import DEFAULT_SEED
@@ -261,6 +263,47 @@ def _run_replay(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `rt-capture` / `validate` — GTFS-RT (M1.4)
+# ---------------------------------------------------------------------------
+
+
+def _run_rt_capture(args: argparse.Namespace) -> None:
+    paths = capture(args.out_dir, count=args.count, interval_s=args.interval)
+    print(f"captured {len(paths)} snapshot(s) -> {args.out_dir}")
+    for p in paths:
+        print(f"  {p.name}  ({p.stat().st_size:,} bytes)")
+
+
+def _run_validate(args: argparse.Namespace) -> None:
+    report, pairs = run_validation(
+        args.snapshot,
+        args.feed,
+        args.date,
+        long_distance_only=args.long_distance,
+        primary_threshold_s=args.primary_threshold,
+    )
+    scope = "long-distance" if args.long_distance else "all RT trips"
+    print(f"GTFS-RT validation — {args.date} ({scope}):")
+    print(f"  trips compared       {report.n_trips:>10,}")
+    print(f"  held-out pairs       {report.n_pairs:>10,}  (realized downstream stops)")
+    print(f"  MAE                  {report.mae_s / 60:>10.2f} min")
+    print(f"  RMSE                 {report.rmse_s / 60:>10.2f} min")
+    print(f"  bias (sim-obs)       {report.bias_s / 60:>10.2f} min")
+    print(f"  correlation r        {report.correlation:>10.3f}")
+    print(f"  delayed trains (|origin| >= {report.primary_threshold_s}s):")
+    print(f"    pairs              {report.n_delayed_pairs:>10,}")
+    print(f"    MAE                {report.mae_delayed_s / 60:>10.2f} min")
+    print(
+        f"    baseline MAE       {report.baseline_mae_delayed_s / 60:>10.2f} min  (constant delay)"
+    )
+    print(f"    correlation r      {report.correlation_delayed:>10.3f}")
+    print(f"    beats baseline     {report.beats_baseline!s:>10}")
+    if args.scatter is not None:
+        render_scatter(pairs, report, args.scatter)
+        print(f"  scatter -> {args.scatter}")
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -339,6 +382,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_replay.add_argument("--at", default=None, help="Show positions at HH:MM[:SS].")
     p_replay.add_argument("--db", type=Path, default=None, help="DuckDB for stop names.")
     p_replay.set_defaults(func=_run_replay)
+
+    p_cap = sub.add_parser("rt-capture", help="Capture GTFS-RT snapshots (M1.4).")
+    p_cap.add_argument("out_dir", type=Path, help="Directory to save .pb snapshots.")
+    p_cap.add_argument("--count", type=int, default=1, help="Number of snapshots.")
+    p_cap.add_argument("--interval", type=float, default=120.0, help="Seconds between polls.")
+    p_cap.set_defaults(func=_run_rt_capture)
+
+    p_val = sub.add_parser("validate", help="Validate the sim against GTFS-RT (M1.4).")
+    p_val.add_argument("snapshot", type=Path, help="GTFS-RT .pb snapshot.")
+    p_val.add_argument("--feed", type=Path, required=True, help="Full static feed zip.")
+    p_val.add_argument("--date", type=int, required=True, help="Service date YYYYMMDD.")
+    p_val.add_argument("--long-distance", action="store_true", help="Restrict to ICE/IC/EC.")
+    p_val.add_argument(
+        "--primary-threshold", type=int, default=120, help="Delayed-train cutoff (s)."
+    )
+    p_val.add_argument("--scatter", type=Path, default=None, help="Write a scatter PNG.")
+    p_val.set_defaults(func=_run_validate)
 
     return parser
 

@@ -11,13 +11,23 @@ from dbsim.analysis.bildfahrplan import (
     extract_train_paths,
     render_bildfahrplan,
 )
+from dbsim.analysis.validation import (
+    ValidationPair,
+    ValidationReport,
+    render_scatter,
+    run_validation,
+)
 
 __all__ = [
     "DEFAULT_CORRIDOR",
     "Corridor",
     "CorridorStation",
     "TrainPath",
+    "ValidationPair",
+    "ValidationReport",
     "build_corridor",
     "extract_train_paths",
     "render_bildfahrplan",
+    "render_scatter",
+    "run_validation",
 ]
