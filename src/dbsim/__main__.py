@@ -22,7 +22,16 @@ from dbsim.analysis import (
     render_scatter,
     run_validation,
 )
-from dbsim.engine import Event, MacroSimulation, PrimaryDelay, Simulation, load_schedules
+from dbsim.engine import (
+    Event,
+    MacroSimulation,
+    MesoSimulation,
+    MesoTrain,
+    PrimaryDelay,
+    Simulation,
+    load_schedules,
+    meso_corridor_from_segments,
+)
 from dbsim.ingest import FEEDS, bbox_around, capture, download_feed, fetch_railways, load_feed
 from dbsim.model import (
     Timetable,
@@ -342,6 +351,52 @@ def _run_segments(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `meso` — mesoscopic segment-occupancy simulation (M2.2)
+# ---------------------------------------------------------------------------
+
+
+def _run_meso(args: argparse.Namespace) -> None:
+    names = tuple(s.strip() for s in args.stations.split(";"))
+    coords: list[tuple[str, float, float]] = []
+    with Timetable(args.db) as tt:
+        for name in names:
+            row = tt.connection.execute(
+                "SELECT stop_lat, stop_lon FROM stops "
+                "WHERE stop_name = ? AND stop_lat IS NOT NULL LIMIT 1",
+                [name],
+            ).fetchone()
+            if row is None:
+                raise SystemExit(f"station not found in feed: {name!r}")
+            coords.append((name, float(row[0]), float(row[1])))
+
+    bbox = bbox_around([(la, lo) for _, la, lo in coords], margin_deg=0.02)
+    segments = build_corridor_segments(coords, fetch_railways(bbox, cache_path=args.cache))
+    corridor = meso_corridor_from_segments(segments, headway_s=args.headway)
+
+    n = len(corridor.stations)
+    print(f"corridor ({n} stations):")
+    for seg in corridor.segments:
+        kind = "single-track" if seg.capacity <= 1 else f"{seg.capacity}-track"
+        print(f"  seg{seg.index} {seg.name}: {kind}, run {seg.running_time_s}s")
+
+    # Two opposing trains, both ready at t=0 — forces a meet.
+    forward = MesoTrain("FWD", tuple(range(n)), entry_time_s=0, priority=1)
+    backward = MesoTrain("BWD", tuple(range(n - 1, -1, -1)), entry_time_s=0, priority=0)
+    meso = MesoSimulation(corridor, [forward, backward])
+    meso.run()
+
+    print("\nmovements (station index over time):")
+    for r in sorted(meso.movements, key=lambda r: (r.time_s, r.train_id)):
+        print(
+            f"  t={r.time_s:>6}  {r.train_id}  {r.event:<7} @ {corridor.stations[r.station_index]}"
+        )
+    over = meso.overcapacity_segments()
+    print(f"\noccupancy ok (no segment over capacity): {not over}")
+    if over:
+        print(f"  OVER-CAPACITY segments: {over}")
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -443,6 +498,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_seg.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
     p_seg.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
     p_seg.set_defaults(func=_run_segments)
+
+    p_meso = sub.add_parser("meso", help="Mesoscopic segment-occupancy meet (M2.2).")
+    p_meso.add_argument("--stations", required=True, help="Ordered station names (semicolon-sep).")
+    p_meso.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
+    p_meso.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
+    p_meso.add_argument("--headway", type=int, default=120, help="Minimum headway seconds.")
+    p_meso.set_defaults(func=_run_meso)
 
     return parser
 

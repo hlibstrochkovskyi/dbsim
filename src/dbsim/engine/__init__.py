@@ -16,6 +16,14 @@ from __future__ import annotations
 
 from dbsim.engine.events import Event
 from dbsim.engine.loop import RunResult, Simulation
+from dbsim.engine.meso import (
+    MesoCorridor,
+    MesoSegment,
+    MesoSimulation,
+    MesoTrain,
+    OccupancyRecord,
+    meso_corridor_from_segments,
+)
 from dbsim.engine.trains import (
     Connection,
     MacroSimulation,
@@ -30,11 +38,17 @@ __all__ = [
     "Connection",
     "Event",
     "MacroSimulation",
+    "MesoCorridor",
+    "MesoSegment",
+    "MesoSimulation",
+    "MesoTrain",
     "MovementRecord",
+    "OccupancyRecord",
     "PrimaryDelay",
     "RunResult",
     "ScheduledStop",
     "Simulation",
     "TrainSchedule",
     "load_schedules",
+    "meso_corridor_from_segments",
 ]

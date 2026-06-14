@@ -154,10 +154,12 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
   - Validated: the **Ammertalbahn** (Tübingen–Herrenberg, line 4633) flagged **single-track** on all 5 branch segments; the double-track Gäubahn (4860) and FFM–Hanau main line (3600) flagged 2-track. Lengths (1.5–5.5 km branch) and speeds (70–110 km/h) plausible.
 - *Note:* classification is per line `ref` (so a double main line beside a separate S-Bahn reads as double for that line, not quad). Foundation for M2.2 headway/occupancy.
 
-### M2.2 — Running-time & headway model · `M`
-- [ ] Per-segment traversal times, minimum headways; segment occupancy as a contended resource. *(Includes the macro→segment **headway** deferred from M1.2 — done here where the occupancy model makes it principled.)*
-- **Deliverable:** trains contend for segment capacity.
-- **Acceptance:** two trains cannot occupy a single-track segment in conflicting directions simultaneously.
+### M2.2 — Running-time & headway model · `M` ✅
+- [x] `MesoSimulation`: each segment is a contended resource (capacity = tracks, minimum **headway**); trains acquire/queue/release segments and wait at stations when blocked. Running time = length / line speed (from M2.1). The **headway deferred from M1.2 is done here**, where the occupancy model makes it principled. `dbsim meso`.
+- **Deliverable:** trains contend for segment capacity. ✅
+- **Acceptance:** two trains cannot occupy a single-track segment in conflicting directions simultaneously. ✅
+  - On the real **Ammertalbahn** (single-track): two opposing trains **meet at Entringen** — the second waits at the station for the segment to clear; no segment ever exceeds capacity. Double-track allows both directions at once.
+- *Note:* headway is applied per segment entry (conservative for opposing moves on separate tracks); priority-then-FIFO contention. Conflict *detection report* is M2.3; *dispatcher* is M2.4; network-wide deadlock avoidance is M3.3.
 
 ### M2.3 — Conflict detection · `M`
 - [ ] Time-window / blocking-time-based conflict detection at segment level.

@@ -108,6 +108,10 @@ The methodology and results are written up in [`docs/validation-report.md`](docs
 # Classify single- vs double-track per station-to-station segment from OpenStreetMap.
 uv run dbsim segments --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
+
+# Mesoscopic meet: two opposing trains contend for single-track segments (M2.2).
+uv run dbsim meso --db data/processed/gtfs-free.duckdb \
+    --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
 ```
 
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
@@ -137,7 +141,8 @@ Phase 1 in progress:
 Phase 2 in progress:
 
 - **M2.1 — track-segment model from OSM** ✅ — single/double-track per segment via cross-section counting.
-- **M2.2 — running-time & headway model** — next.
+- **M2.2 — running-time & headway model** ✅ — segment occupancy as a contended resource; single-track meets resolve at stations.
+- **M2.3 — conflict detection** — next.
 
 ## Repository layout
 
