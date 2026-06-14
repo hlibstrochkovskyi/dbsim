@@ -21,6 +21,7 @@ from dbsim.engine.blocking import (
     blocking_times,
     micro_trajectory,
 )
+from dbsim.engine.coupling import BoundaryArrival, CoupledResult, HandOff, couple_zone
 from dbsim.engine.events import Event
 from dbsim.engine.loop import RunResult, Simulation
 from dbsim.engine.meso import (
@@ -51,9 +52,12 @@ from dbsim.engine.trains import (
 __all__ = [
     "BlockTraversal",
     "BlockingInterval",
+    "BoundaryArrival",
     "Closure",
     "Connection",
+    "CoupledResult",
     "Event",
+    "HandOff",
     "MacroSimulation",
     "MeetEvent",
     "MeetResult",
@@ -72,6 +76,7 @@ __all__ = [
     "TrainDynamics",
     "TrainSchedule",
     "blocking_times",
+    "couple_zone",
     "load_schedules",
     "meso_corridor_from_segments",
     "micro_trajectory",

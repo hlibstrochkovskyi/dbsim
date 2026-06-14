@@ -33,6 +33,7 @@ from dbsim.dispatch import DISPATCHERS
 from dbsim.engine import (
     BlockingInterval,
     BlockTraversal,
+    BoundaryArrival,
     Closure,
     Event,
     MacroSimulation,
@@ -44,6 +45,7 @@ from dbsim.engine import (
     Simulation,
     TrainDynamics,
     blocking_times,
+    couple_zone,
     load_schedules,
     meso_corridor_from_segments,
     micro_trajectory,
@@ -415,6 +417,65 @@ def _run_stairway(args: argparse.Namespace) -> None:
     print(f"stairway -> {args.out}")
 
 
+def _run_couple(args: argparse.Namespace) -> None:
+    from itertools import pairwise
+
+    from dbsim.analysis.bildfahrplan import DOWN, TrainPath
+
+    names = (
+        "Tübingen Hbf",
+        "Unterjesingen Mitte",
+        "Pfäffingen",
+        "Entringen",
+        "Altingen(Württ)",
+        "Gültstein",
+        "Herrenberg",
+    )
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+
+    with Timetable(args.db) as tt:
+        corridor = build_corridor(tt, names)
+        paths = extract_train_paths(tt, corridor, args.date)
+    dist = {s.name: s.distance_km for s in corridor.stations}
+    west_d, east_d = dist[zone.west_boundary], dist[zone.east_boundary]
+
+    def entry_time(path: TrainPath, target_km: float) -> int | None:
+        pts = sorted(path.points, key=lambda p: p[1])
+        if target_km < pts[0][1] - 1e-6 or target_km > pts[-1][1] + 1e-6:
+            return None
+        for (t0, d0), (t1, d1) in pairwise(pts):
+            if d0 <= target_km <= d1:
+                if d1 == d0:
+                    return int(t0)
+                return round(t0 + (t1 - t0) * (target_km - d0) / (d1 - d0))
+        return int(pts[-1][0])
+
+    arrivals: list[BoundaryArrival] = []
+    for path in paths:
+        we = path.direction == DOWN
+        t = entry_time(path, west_d if we else east_d)
+        if t is not None:
+            arrivals.append(BoundaryArrival(path.trip_id, "WE" if we else "EW", t))
+    arrivals.sort(key=lambda a: a.macro_arrival_s)
+
+    result = couple_zone(zone, arrivals, avoid=True)
+    print(f"coupled run — {zone.name} micro zone embedded in the macro schedule ({args.date})")
+    print(
+        f"  {len(arrivals)} trains traverse the zone; "
+        f"deadlocked={result.deadlocked}  consistent={result.consistent}"
+    )
+    for h in result.handoffs[: args.limit]:
+        wait = f" (held {h.boundary_wait_s}s)" if h.boundary_wait_s else ""
+        print(
+            f"  {h.train_id:<10} {h.entry_boundary} {format_hms(h.macro_arrival_s)}"
+            f" -> micro {h.zone_time_s}s{wait} -> {h.exit_boundary} {format_hms(h.exit_time_s)}"
+        )
+    delayed = sum(1 for h in result.handoffs if h.boundary_wait_s > 0)
+    print(f"  {delayed} train(s) delayed by micro-level contention")
+
+
 def _run_meet(args: argparse.Namespace) -> None:
     ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
     features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
@@ -746,6 +807,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_meet.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
     p_meet.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
     p_meet.set_defaults(func=_run_meet)
+
+    p_couple = sub.add_parser("couple", help="Embed the micro zone in the macro schedule (M3.4).")
+    p_couple.add_argument("--db", type=Path, required=True, help="DuckDB (timetable + coords).")
+    p_couple.add_argument("--date", type=int, required=True, help="Service date YYYYMMDD.")
+    p_couple.add_argument("--limit", type=int, default=12, help="Max hand-offs to print.")
+    p_couple.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
+    p_couple.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
+    p_couple.set_defaults(func=_run_couple)
 
     return parser
 

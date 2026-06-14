@@ -220,10 +220,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** a constructed near-deadlock is avoided (trains meet correctly at a passing loop). ✅
   - Two opposing trains at the Pfäffingen loop: **naive → deadlock** (A holds loop_t1 + waits east_approach; B holds east_approach + waits loop_t1); **avoidance → both meet** (A on through track loop_t1, B rerouted to passing track loop_t2) and complete (exit 67 s / 73 s). No block ever double-occupied.
 
-### M3.4 — Macro–micro coupling · `L`
-- [ ] Hand off trains at the zone boundary (macro → micro arrivals, micro → macro departures).
-- **Deliverable:** a run with the micro zone embedded in the national macro model.
-- **Acceptance:** boundary hand-offs are time-consistent; the coupled run is deterministic.
+### M3.4 — Macro–micro coupling · `L` ✅
+- [x] `engine/coupling.py`: `couple_zone` takes macro `BoundaryArrival`s (macro time at the entry boundary + direction), runs the block-level micro meet, and returns `HandOff`s (entry/exit boundary + time). The micro meet/contention **propagates into macro timing**; a **boundary-consistency** check guards against acausal hand-offs (entry ≥ macro arrival, exit > entry). `dbsim couple`. Deterministic.
+- **Deliverable:** a run with the micro zone embedded in the national macro model. ✅
+- **Acceptance:** boundary hand-offs are time-consistent; the coupled run is deterministic. ✅
+  - Real Ammertalbahn schedule (104 trains through the zone): all hand-offs **consistent**, deterministic. A close follower is **held 16 s at the boundary** by the leader's micro block — that block-level contention re-materialises as a 16 s macro delay (the multi-scale payoff). Opposing trains pass cleanly on different loop tracks.
 
 ### M3.5 — Micro-validation harness · `M` *(added)*
 *Mirror M1.4 at micro grain — micro errors compound fast, so validate, don't trust.*
