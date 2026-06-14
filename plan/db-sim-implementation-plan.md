@@ -214,10 +214,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** the blocking-time stairway for a train sequence is correct and visualizable. ✅
   - Pfäffingen through route: 66 s run, **56 s minimum headway** (set by the slower loop block); rendered stairway shows the leader + a follower whose blocking bars just touch — textbook blocking-time staircase.
 
-### M3.3 — Deadlock avoidance · `M`
-- [ ] Time-window reservation / lookahead on single-track and critical resources.
-- **Deliverable:** meets/passes resolved without deadlock.
-- **Acceptance:** a constructed near-deadlock is avoided (trains meet correctly at a passing loop).
+### M3.3 — Deadlock avoidance · `M` ✅
+- [x] `engine/micro_meet.py`: event-driven **block-reservation** meet simulation (each block held by ≤ 1 train). Deadlock avoidance = route a train onto a **free loop track** when it reaches the loop (the dispatcher's meet decision), instead of both insisting on the through track. A naive policy is kept for contrast; the sim **detects** its deadlock (event queue drains with trains stuck). `dbsim meet [--naive]`. Deterministic.
+- **Deliverable:** meets/passes resolved without deadlock. ✅
+- **Acceptance:** a constructed near-deadlock is avoided (trains meet correctly at a passing loop). ✅
+  - Two opposing trains at the Pfäffingen loop: **naive → deadlock** (A holds loop_t1 + waits east_approach; B holds east_approach + waits loop_t1); **avoidance → both meet** (A on through track loop_t1, B rerouted to passing track loop_t2) and complete (exit 67 s / 73 s). No block ever double-occupied.
 
 ### M3.4 — Macro–micro coupling · `L`
 - [ ] Hand off trains at the zone boundary (macro → micro arrivals, micro → macro departures).

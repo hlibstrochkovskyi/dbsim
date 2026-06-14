@@ -38,6 +38,8 @@ from dbsim.engine import (
     MacroSimulation,
     MesoSimulation,
     MesoTrain,
+    MicroMeetSimulation,
+    MicroMeetTrain,
     PrimaryDelay,
     Simulation,
     TrainDynamics,
@@ -413,6 +415,28 @@ def _run_stairway(args: argparse.Namespace) -> None:
     print(f"stairway -> {args.out}")
 
 
+def _run_meet(args: argparse.Namespace) -> None:
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+    trains = [
+        MicroMeetTrain("A", "WE", entry_time_s=0, priority=1),
+        MicroMeetTrain("B", "EW", entry_time_s=0, priority=0),
+    ]
+    avoid = not args.naive
+    result = MicroMeetSimulation(zone, trains, avoid=avoid).run()
+
+    policy = "naive (both via through track)" if args.naive else "deadlock-avoidance"
+    print(f"meet at {zone.name} loop — policy: {policy}")
+    for e in result.events:
+        print(f"  t={e.time_s:>4}  {e.train_id}  {e.action:<6} {e.block_id}")
+    if result.deadlocked:
+        print(f"  DEADLOCK — completed {sorted(result.completed)} of {[t.id for t in trains]}")
+    else:
+        tracks = ", ".join(f"{t}->{b}" for t, b in sorted(result.loop_track.items()))
+        print(f"  meet resolved: both completed; loop tracks: {tracks}")
+
+
 def _run_micro(args: argparse.Namespace) -> None:
     ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
     features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
@@ -714,6 +738,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_stair.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
     p_stair.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
     p_stair.set_defaults(func=_run_stairway)
+
+    p_meet = sub.add_parser(
+        "meet", help="Opposing-train meet at the loop, deadlock-avoided (M3.3)."
+    )
+    p_meet.add_argument("--naive", action="store_true", help="Use the naive (deadlocking) policy.")
+    p_meet.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
+    p_meet.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
+    p_meet.set_defaults(func=_run_meet)
 
     return parser
 

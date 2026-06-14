@@ -166,7 +166,8 @@ Phase 3 in progress:
 - **M3.1.0 — zone-coverage survey** ✅ — chose the micro zone from OSM coverage evidence ([`docs/zone-survey.md`](docs/zone-survey.md)): the Ammertalbahn Pfäffingen passing loop.
 - **M3.1 — curate the zone** ✅ — validated micro-infrastructure `MicroZone` (blocks, routes, signals, switches) from real OSM.
 - **M3.2 — microscopic movement & blocking-time** ✅ — speed profiles + blocking-time stairways; min headway.
-- **M3.3 — deadlock avoidance** — next.
+- **M3.3 — deadlock avoidance** ✅ — opposing trains meet at the loop without deadlock (`dbsim meet`).
+- **M3.4 — macro–micro coupling** — next.
 
 ## Repository layout
 

@@ -32,6 +32,12 @@ from dbsim.engine.meso import (
     OccupancyRecord,
     meso_corridor_from_segments,
 )
+from dbsim.engine.micro_meet import (
+    MeetEvent,
+    MeetResult,
+    MicroMeetSimulation,
+    MicroMeetTrain,
+)
 from dbsim.engine.trains import (
     Connection,
     MacroSimulation,
@@ -49,10 +55,14 @@ __all__ = [
     "Connection",
     "Event",
     "MacroSimulation",
+    "MeetEvent",
+    "MeetResult",
     "MesoCorridor",
     "MesoSegment",
     "MesoSimulation",
     "MesoTrain",
+    "MicroMeetSimulation",
+    "MicroMeetTrain",
     "MovementRecord",
     "OccupancyRecord",
     "PrimaryDelay",
