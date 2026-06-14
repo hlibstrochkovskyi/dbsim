@@ -11,6 +11,12 @@ from dbsim.analysis.bildfahrplan import (
     extract_train_paths,
     render_bildfahrplan,
 )
+from dbsim.analysis.conflicts import (
+    Conflict,
+    Occupation,
+    detect_conflicts,
+    planned_occupations,
+)
 from dbsim.analysis.validation import (
     ValidationPair,
     ValidationReport,
@@ -20,13 +26,17 @@ from dbsim.analysis.validation import (
 
 __all__ = [
     "DEFAULT_CORRIDOR",
+    "Conflict",
     "Corridor",
     "CorridorStation",
+    "Occupation",
     "TrainPath",
     "ValidationPair",
     "ValidationReport",
     "build_corridor",
+    "detect_conflicts",
     "extract_train_paths",
+    "planned_occupations",
     "render_bildfahrplan",
     "render_scatter",
     "run_validation",

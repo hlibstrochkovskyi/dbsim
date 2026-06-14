@@ -17,7 +17,9 @@ from pathlib import Path
 from dbsim.analysis import (
     DEFAULT_CORRIDOR,
     build_corridor,
+    detect_conflicts,
     extract_train_paths,
+    planned_occupations,
     render_bildfahrplan,
     render_scatter,
     run_validation,
@@ -382,6 +384,16 @@ def _run_meso(args: argparse.Namespace) -> None:
     # Two opposing trains, both ready at t=0 — forces a meet.
     forward = MesoTrain("FWD", tuple(range(n)), entry_time_s=0, priority=1)
     backward = MesoTrain("BWD", tuple(range(n - 1, -1, -1)), entry_time_s=0, priority=0)
+
+    # M2.3: detect the conflicts the *planned* (uncontended) schedule would have.
+    conflicts = detect_conflicts(corridor, planned_occupations(corridor, [forward, backward]))
+    print(f"\nplanned conflicts (before dispatching): {len(conflicts)}")
+    for c in conflicts:
+        print(
+            f"  {c.kind} on {c.segment_name}: "
+            f"t[{c.start_s},{c.end_s}] trains={c.trains} peak={c.peak_occupancy}/{c.capacity}"
+        )
+
     meso = MesoSimulation(corridor, [forward, backward])
     meso.run()
 

@@ -142,7 +142,8 @@ Phase 2 in progress:
 
 - **M2.1 — track-segment model from OSM** ✅ — single/double-track per segment via cross-section counting.
 - **M2.2 — running-time & headway model** ✅ — segment occupancy as a contended resource; single-track meets resolve at stations.
-- **M2.3 — conflict detection** — next.
+- **M2.3 — conflict detection** ✅ — blocking-time over-saturation detection; `dbsim meso` reports conflicts before dispatching.
+- **M2.4 — priority-based dispatcher (v1)** — next.
 
 ## Repository layout
 

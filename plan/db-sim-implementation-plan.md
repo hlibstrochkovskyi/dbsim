@@ -161,10 +161,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
   - On the real **Ammertalbahn** (single-track): two opposing trains **meet at Entringen** — the second waits at the station for the segment to clear; no segment ever exceeds capacity. Double-track allows both directions at once.
 - *Note:* headway is applied per segment entry (conservative for opposing moves on separate tracks); priority-then-FIFO contention. Conflict *detection report* is M2.3; *dispatcher* is M2.4; network-wide deadlock avoidance is M3.3.
 
-### M2.3 — Conflict detection · `M`
-- [ ] Time-window / blocking-time-based conflict detection at segment level.
-- **Deliverable:** a conflict report for a run.
-- **Acceptance:** injected over-saturation produces detected conflicts at the correct place/time.
+### M2.3 — Conflict detection · `M` ✅
+- [x] Blocking-time conflict detection at segment level: from trains' **planned** (uncontended) segment occupations, a *blocking interval* `[enter, exit + headway]` per train; a conflict is a maximal window where overlapping blocking intervals exceed segment capacity. Classified single-track meet vs over-capacity. `dbsim meso` reports planned conflicts before resolution.
+- **Deliverable:** a conflict report for a run. ✅
+- **Acceptance:** injected over-saturation produces detected conflicts at the correct place/time. ✅
+  - Synthetic: 3 trains on a single-track segment → one over-capacity window [100,820], peak 3/1. Real Ammertalbahn: opposing trains → 2 single-track-meet conflicts at the Entringen-area segments (which M2.2 then resolves). No false positives on well-spaced trains.
 
 ### M2.4 — Priority-based dispatcher (v1) · `L`
 - [ ] Define the **swappable dispatcher interface**; resolve conflicts by simple priority rules.
