@@ -167,10 +167,12 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** injected over-saturation produces detected conflicts at the correct place/time. ✅
   - Synthetic: 3 trains on a single-track segment → one over-capacity window [100,820], peak 3/1. Real Ammertalbahn: opposing trains → 2 single-track-meet conflicts at the Entringen-area segments (which M2.2 then resolves). No false positives on well-spaced trains.
 
-### M2.4 — Priority-based dispatcher (v1) · `L`
-- [ ] Define the **swappable dispatcher interface**; resolve conflicts by simple priority rules.
-- **Deliverable:** disruptions resolved automatically; runs stay feasible.
-- **Acceptance:** under a line closure, trains are held/rerouted and the schedule stays conflict-free; dispatcher is genuinely pluggable.
+### M2.4 — Priority-based dispatcher (v1) · `L` ✅
+- [x] **Swappable `Dispatcher` interface** (`dispatch/`): `select(segment, waiting, now) -> train_id | None` decides which waiting train is admitted; the meso engine owns the mechanism (capacity/headway/closures), the dispatcher owns the policy. v1 = `PriorityDispatcher` (+ `FifoDispatcher` to prove pluggability). Line-closure disruptions (`Closure(segment, start, end)`); trains hold and reopen. `dbsim meso --dispatcher … --close SEG:START:END`.
+- **Deliverable:** disruptions resolved automatically; runs stay feasible. ✅
+- **Acceptance:** under a line closure, trains are held and the schedule stays conflict-free; dispatcher is genuinely pluggable. ✅
+  - Real Ammertalbahn, segment closed [0,1800]: both trains held then complete (2/2), no over-capacity. Swapping priority↔fifo changes which train goes first after reopen (FWD vs BWD). Determinism preserved.
+- *Note:* "held" only (corridor has no alternative path); rerouting needs network alternatives (the macro graph) — a later extension. Smarter strategies (alternative-graph M4.1, MILP/CP M4.2) implement the same interface.
 
 ### M2.5 — Disruption scenario format · `S`
 - [ ] Declarative scenarios (closures, speed restrictions, blocked segments).

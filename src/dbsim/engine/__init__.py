@@ -17,6 +17,7 @@ from __future__ import annotations
 from dbsim.engine.events import Event
 from dbsim.engine.loop import RunResult, Simulation
 from dbsim.engine.meso import (
+    Closure,
     MesoCorridor,
     MesoSegment,
     MesoSimulation,
@@ -35,6 +36,7 @@ from dbsim.engine.trains import (
 )
 
 __all__ = [
+    "Closure",
     "Connection",
     "Event",
     "MacroSimulation",

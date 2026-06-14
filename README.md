@@ -109,9 +109,14 @@ The methodology and results are written up in [`docs/validation-report.md`](docs
 uv run dbsim segments --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
 
-# Mesoscopic meet: two opposing trains contend for single-track segments (M2.2).
+# Mesoscopic meet: two opposing trains contend for single-track segments (M2.2/M2.3).
 uv run dbsim meso --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
+
+# Dispatch a line closure (M2.4): swap policy, close a segment over a time window.
+uv run dbsim meso --db data/processed/gtfs-free.duckdb \
+    --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg" \
+    --dispatcher priority --close 1:0:1800
 ```
 
 Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
@@ -143,7 +148,8 @@ Phase 2 in progress:
 - **M2.1 — track-segment model from OSM** ✅ — single/double-track per segment via cross-section counting.
 - **M2.2 — running-time & headway model** ✅ — segment occupancy as a contended resource; single-track meets resolve at stations.
 - **M2.3 — conflict detection** ✅ — blocking-time over-saturation detection; `dbsim meso` reports conflicts before dispatching.
-- **M2.4 — priority-based dispatcher (v1)** — next.
+- **M2.4 — priority-based dispatcher (v1)** ✅ — swappable `Dispatcher` interface; line closures held conflict-free.
+- **M2.5 — disruption scenario format** — next.
 
 ## Repository layout
 

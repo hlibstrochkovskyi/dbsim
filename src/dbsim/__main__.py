@@ -24,7 +24,9 @@ from dbsim.analysis import (
     render_scatter,
     run_validation,
 )
+from dbsim.dispatch import DISPATCHERS
 from dbsim.engine import (
+    Closure,
     Event,
     MacroSimulation,
     MesoSimulation,
@@ -357,6 +359,14 @@ def _run_segments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _parse_closure(value: str) -> Closure:
+    """Parse a ``SEG:START:END`` segment-closure spec (seconds)."""
+    parts = value.split(":")
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError(f"invalid --close {value!r}; expected SEG:START:END")
+    return Closure(int(parts[0]), int(parts[1]), int(parts[2]))
+
+
 def _run_meso(args: argparse.Namespace) -> None:
     names = tuple(s.strip() for s in args.stations.split(";"))
     coords: list[tuple[str, float, float]] = []
@@ -384,26 +394,32 @@ def _run_meso(args: argparse.Namespace) -> None:
     # Two opposing trains, both ready at t=0 — forces a meet.
     forward = MesoTrain("FWD", tuple(range(n)), entry_time_s=0, priority=1)
     backward = MesoTrain("BWD", tuple(range(n - 1, -1, -1)), entry_time_s=0, priority=0)
+    trains = [forward, backward]
+
+    closures = [_parse_closure(c) for c in args.close or []]
+    dispatcher = DISPATCHERS[args.dispatcher]()
 
     # M2.3: detect the conflicts the *planned* (uncontended) schedule would have.
-    conflicts = detect_conflicts(corridor, planned_occupations(corridor, [forward, backward]))
-    print(f"\nplanned conflicts (before dispatching): {len(conflicts)}")
+    conflicts = detect_conflicts(corridor, planned_occupations(corridor, trains))
+    print(f"\ndispatcher: {dispatcher.name}; closures: {len(closures)}")
+    print(f"planned conflicts (before dispatching): {len(conflicts)}")
     for c in conflicts:
         print(
             f"  {c.kind} on {c.segment_name}: "
             f"t[{c.start_s},{c.end_s}] trains={c.trains} peak={c.peak_occupancy}/{c.capacity}"
         )
 
-    meso = MesoSimulation(corridor, [forward, backward])
+    meso = MesoSimulation(corridor, trains, dispatcher=dispatcher, closures=closures)
     meso.run()
 
     print("\nmovements (station index over time):")
     for r in sorted(meso.movements, key=lambda r: (r.time_s, r.train_id)):
-        print(
-            f"  t={r.time_s:>6}  {r.train_id}  {r.event:<7} @ {corridor.stations[r.station_index]}"
-        )
+        station = corridor.stations[r.station_index]
+        print(f"  t={r.time_s:>6}  {r.train_id}  {r.event:<7} @ {station}")
     over = meso.overcapacity_segments()
-    print(f"\noccupancy ok (no segment over capacity): {not over}")
+    done = meso.completed_trains()
+    print(f"\ncompleted trains: {sorted(done)}  ({len(done)}/{len(trains)})")
+    print(f"occupancy ok (no segment over capacity): {not over}")
     if over:
         print(f"  OVER-CAPACITY segments: {over}")
 
@@ -516,6 +532,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_meso.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
     p_meso.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
     p_meso.add_argument("--headway", type=int, default=120, help="Minimum headway seconds.")
+    p_meso.add_argument(
+        "--dispatcher", choices=sorted(DISPATCHERS), default="priority", help="Dispatch policy."
+    )
+    p_meso.add_argument(
+        "--close",
+        action="append",
+        metavar="SEG:START:END",
+        help="Close a segment over a time window (repeatable).",
+    )
     p_meso.set_defaults(func=_run_meso)
 
     return parser
