@@ -245,10 +245,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 
 *Goal: the actual research payoff.*
 
-### M4.1 — Alternative-graph dispatcher (v2) · `L`
-- [ ] Implement the alternative-graph model + a heuristic (e.g. AMCC) for conflict resolution.
-- **Deliverable:** a smarter dispatcher, comparable against v1.
-- **Acceptance:** on the same disruption, v2 produces measurably different (ideally better) delay outcomes than v1.
+### M4.1 — Alternative-graph dispatcher (v2) · `L` ✅
+- [x] `dispatch/altgraph.py`: the alternative-graph model (operations = train-on-resource; fixed arcs = routes; disjunctive pairs = ordering choices) solved by the **AMCC** heuristic (avoid the most-critical arc, cycle-safe). Longest-path schedule + makespan. `solve_by_priority` is the v1 baseline (priority order) on the same graph; `AltGraphDispatcher` exposes the AMCC ordering via the swappable `Dispatcher` interface. `dbsim reschedule`.
+- **Deliverable:** a smarter dispatcher, comparable against v1. ✅
+- **Acceptance:** on the same disruption, v2 produces measurably different (ideally better) delay outcomes than v1. ✅
+  - Delayed high-priority train meeting an on-time opposing train on single track: v1 (priority) forces the delayed train first on both segments → makespan 3520 s, total delay 2320 s. v2 (AMCC) reorders segment B-C ([LOW,HIGH] vs v1's [HIGH,LOW]) so the on-time train uses the gap → **makespan 2320 s, total delay 1120 s — 34% / 52% better**. Deterministic; `solve_amcc.makespan ≤ solve_by_priority.makespan` always.
 
 ### M4.2 — MILP / CP optimal baseline · `M`
 - [ ] Formulate dispatching as MILP (HiGHS) or CP-SAT (OR-Tools) for a small zone.

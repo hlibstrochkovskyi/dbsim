@@ -170,7 +170,12 @@ Phase 3 in progress:
 - **M3.4 — macro–micro coupling** ✅ — micro zone embedded in the macro schedule; micro contention propagates to macro (`dbsim couple`).
 - **M3.5 — micro-validation harness** ✅ — zone consistent with the operated timetable ([`docs/micro-validation.md`](docs/micro-validation.md)).
 
-**Phase 3 complete.** Remaining: Phase 4 (advanced rescheduling & robustness studies).
+**Phase 3 complete.**
+
+Phase 4 in progress:
+
+- **M4.1 — alternative-graph dispatcher (v2)** ✅ — AMCC rescheduling beats the priority rule on a disruption (`dbsim reschedule`).
+- **M4.2 — MILP / CP optimal baseline** — next.
 
 ## Repository layout
 

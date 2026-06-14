@@ -30,7 +30,7 @@ from dbsim.analysis import (
     uic406_occupancy,
     validate_micro_zone,
 )
-from dbsim.dispatch import DISPATCHERS
+from dbsim.dispatch import DISPATCHERS, build_problem_from_meso, solve_amcc, solve_by_priority
 from dbsim.engine import (
     BlockingInterval,
     BlockTraversal,
@@ -51,6 +51,7 @@ from dbsim.engine import (
     meso_corridor_from_segments,
     micro_trajectory,
 )
+from dbsim.engine.meso import MesoCorridor, MesoSegment
 from dbsim.ingest import (
     FEEDS,
     bbox_around,
@@ -464,6 +465,41 @@ def _zone_boundary_arrivals(db: Path, zone: object, date: int) -> list[BoundaryA
     return arrivals
 
 
+def _run_reschedule(args: argparse.Namespace) -> None:
+    # A single-track corridor A–B–C; a high-priority train delayed by --delay s
+    # meets an on-time opposing train. The order on the segments is the decision.
+    corridor = MesoCorridor(
+        ("A", "B", "C"),
+        (MesoSegment(0, "A-B", 600, 1, 120), MesoSegment(1, "B-C", 600, 1, 120)),
+    )
+    high = MesoTrain("HIGH", (0, 1, 2), entry_time_s=args.delay, priority=10)
+    low = MesoTrain("LOW", (2, 1, 0), entry_time_s=0, priority=0)
+    problem = build_problem_from_meso(corridor, [high, low])
+    priority = {"HIGH": 10, "LOW": 0}
+
+    v1 = solve_by_priority(problem, priority)
+    v2 = solve_amcc(problem)
+    free = {
+        t: problem.release[t] + sum(o.proc_s for o in problem.train_ops[t])
+        for t in problem.train_ops
+    }
+
+    def total_delay(sol: object) -> int:
+        return sum(sol.completion[t] - free[t] for t in free)  # type: ignore[attr-defined]
+
+    print(f"rescheduling under a {args.delay} s delay to the high-priority train:")
+    print(f"  {'metric':<16} {'v1 priority':>12} {'v2 alt-graph':>14}")
+    print(f"  {'makespan (s)':<16} {v1.makespan:>12,} {v2.makespan:>14,}")
+    print(f"  {'total delay (s)':<16} {total_delay(v1):>12,} {total_delay(v2):>14,}")
+    print(f"  segment B-C order:  v1={v1.resource_order['1']}  v2={v2.resource_order['1']}")
+    if v2.makespan < v1.makespan:
+        gain = (1 - v2.makespan / v1.makespan) * 100
+        sooner = v1.makespan - v2.makespan
+        print(f"  -> v2 clears the disruption {sooner} s sooner ({gain:.0f}% better)")
+    elif v2.makespan == v1.makespan:
+        print("  -> v2 matches v1 on this instance")
+
+
 def _run_micro_validate(args: argparse.Namespace) -> None:
     ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
     features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
@@ -850,6 +886,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mval.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
     p_mval.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
     p_mval.set_defaults(func=_run_micro_validate)
+
+    p_resch = sub.add_parser("reschedule", help="Alt-graph (v2) vs priority (v1) dispatching.")
+    p_resch.add_argument(
+        "--delay", type=int, default=1000, help="Primary delay (s) on the express."
+    )
+    p_resch.set_defaults(func=_run_reschedule)
 
     return parser
 
