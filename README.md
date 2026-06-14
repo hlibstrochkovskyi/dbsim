@@ -122,7 +122,9 @@ Phase 1 in progress:
 - **M1.2 — delay model & propagation** ✅ — primary delays, dwell recovery, connection holding; no acausal effects.
 - **M1.3 — recording format & replay** ✅ — self-describing Parquet recording; position reconstruction.
 - **M1.4 — ⭐ validation against GTFS-RT** ✅ — sim vs observed delays correlate (r≈0.47); see [`docs/validation-report.md`](docs/validation-report.md).
-- **M1.5 — scale to national macro + profile** — next.
+- **M1.5 — scale to national macro + profile** ✅ — national rail day in ~8 s; **Rust port not needed** ([`docs/performance-profile.md`](docs/performance-profile.md)).
+
+**Phase 1 complete.** Next: Phase 2 (mesoscopic capacity & dispatching).
 
 ## Repository layout
 

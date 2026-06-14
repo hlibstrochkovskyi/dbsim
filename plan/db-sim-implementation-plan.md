@@ -119,19 +119,24 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
   - 2026-06-14: 122,937 held-out pairs, MAE 1.28 min, **r=0.47**; on delayed trains (≥2 min) the dwell-recovery model **beats** the constant-delay baseline (+2.6% overall, +12.9% long-distance). Under-prediction (negative bias) is the quantified motivation for Phase 2 (headway/conflicts).
 - *Note:* one rich snapshot (realized past-stop delays); a full held-out day via forward `rt-capture` is the documented strengthening step.
 
-### M1.5 — Scale to national macro + profile · `M`
-- [ ] Run the full DELFI timetable for a day; profile.
-- **Deliverable:** full-network run completes; performance profile.
-- **Acceptance:** a full day runs within a defined target (e.g. minutes); profiling pinpoints hotspots.
-- **➡ Decision gate:** fast enough → skip Phase 1.5. Too slow → do M-Perf.
+### M1.5 — Scale to national macro + profile · `M` ✅
+- [x] Ran the full `free` feed (35.2 M stop_times) for a day; profiled with cProfile. See [`docs/performance-profile.md`](performance-profile.md).
+- **Deliverable:** full-network run completes; performance profile. ✅
+- **Acceptance:** a full day runs within target (minutes) — **national rail day: ingest 22.6 s, load 11.4 s, simulate 7.9 s (896k events, 113k/s), 1.2 GB, reproduces schedule exactly**; hotspots = the pure-Python event loop + handlers. ✅
+- **➡ Decision gate: SKIP Phase 1.5 (no Rust port).** Python is comfortably fast enough at the real scope (rail); research workloads parallelise across seeds; the only extreme-scale constraint is *memory* (records held in RAM), which Rust wouldn't fix — streaming to the recording would. Revisit only if a later milestone proves CPU-bound.
 
 ---
 
-# Phase 1.5 — Performance Core (CONDITIONAL)
+# Phase 1.5 — Performance Core (CONDITIONAL) — ⏭ SKIPPED
 
 *Only if M1.5 profiling justifies it. A measured decision, not a flex.*
 
-### M-Perf — Rust core via PyO3 · `L`
+> **Decision (M1.5):** SKIPPED. The national rail day runs in ~8 s of simulation
+> (~19 s end-to-end, 1.2 GB) — far inside target. Python stays. See
+> [`docs/performance-profile.md`](performance-profile.md). Revisit only if a later
+> milestone proves CPU-bound.
+
+### M-Perf — Rust core via PyO3 · `L` *(not undertaken)*
 - [ ] Port the hot event loop / graph traversal to Rust; expose via PyO3 + maturin; keep Python for orchestration, experiments, viz.
 - **Deliverable:** same results, faster.
 - **Acceptance:** results numerically equivalent to the Python core; target speedup achieved.
