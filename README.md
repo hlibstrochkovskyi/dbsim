@@ -168,7 +168,9 @@ Phase 3 in progress:
 - **M3.2 — microscopic movement & blocking-time** ✅ — speed profiles + blocking-time stairways; min headway.
 - **M3.3 — deadlock avoidance** ✅ — opposing trains meet at the loop without deadlock (`dbsim meet`).
 - **M3.4 — macro–micro coupling** ✅ — micro zone embedded in the macro schedule; micro contention propagates to macro (`dbsim couple`).
-- **M3.5 — micro-validation harness** — next.
+- **M3.5 — micro-validation harness** ✅ — zone consistent with the operated timetable ([`docs/micro-validation.md`](docs/micro-validation.md)).
+
+**Phase 3 complete.** Remaining: Phase 4 (advanced rescheduling & robustness studies).
 
 ## Repository layout
 

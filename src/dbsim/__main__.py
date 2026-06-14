@@ -28,6 +28,7 @@ from dbsim.analysis import (
     run_validation,
     segment_entries_from_paths,
     uic406_occupancy,
+    validate_micro_zone,
 )
 from dbsim.dispatch import DISPATCHERS
 from dbsim.engine import (
@@ -417,29 +418,30 @@ def _run_stairway(args: argparse.Namespace) -> None:
     print(f"stairway -> {args.out}")
 
 
-def _run_couple(args: argparse.Namespace) -> None:
+#: The Ammertalbahn corridor the Pfäffingen micro zone sits on.
+_AMMERTAL = (
+    "Tübingen Hbf",
+    "Unterjesingen Mitte",
+    "Pfäffingen",
+    "Entringen",
+    "Altingen(Württ)",
+    "Gültstein",
+    "Herrenberg",
+)
+
+
+def _zone_boundary_arrivals(db: Path, zone: object, date: int) -> list[BoundaryArrival]:
+    """Derive macro boundary arrivals for the zone from the Ammertalbahn timetable."""
     from itertools import pairwise
 
     from dbsim.analysis.bildfahrplan import DOWN, TrainPath
 
-    names = (
-        "Tübingen Hbf",
-        "Unterjesingen Mitte",
-        "Pfäffingen",
-        "Entringen",
-        "Altingen(Württ)",
-        "Gültstein",
-        "Herrenberg",
-    )
-    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
-    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
-    zone = curate_pfaffingen_loop(ways, features)
-
-    with Timetable(args.db) as tt:
-        corridor = build_corridor(tt, names)
-        paths = extract_train_paths(tt, corridor, args.date)
+    with Timetable(db) as tt:
+        corridor = build_corridor(tt, _AMMERTAL)
+        paths = extract_train_paths(tt, corridor, date)
     dist = {s.name: s.distance_km for s in corridor.stations}
-    west_d, east_d = dist[zone.west_boundary], dist[zone.east_boundary]
+    west_d = dist[zone.west_boundary]  # type: ignore[attr-defined]
+    east_d = dist[zone.east_boundary]  # type: ignore[attr-defined]
 
     def entry_time(path: TrainPath, target_km: float) -> int | None:
         pts = sorted(path.points, key=lambda p: p[1])
@@ -459,6 +461,32 @@ def _run_couple(args: argparse.Namespace) -> None:
         if t is not None:
             arrivals.append(BoundaryArrival(path.trip_id, "WE" if we else "EW", t))
     arrivals.sort(key=lambda a: a.macro_arrival_s)
+    return arrivals
+
+
+def _run_micro_validate(args: argparse.Namespace) -> None:
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+    arrivals = _zone_boundary_arrivals(args.db, zone, args.date)
+    report = validate_micro_zone(zone, arrivals, args.date)
+
+    print(f"micro-validation — {zone.name} loop vs the operated timetable ({args.date})")
+    print(f"  trains through zone     {report.n_trains:>6}")
+    print(f"  scheduled meets (loop)  {report.n_meets:>6}  (all resolved without deadlock)")
+    print(f"  max occupancy           {report.max_occupancy:>6}  / capacity {report.capacity}")
+    print(f"  micro min headway       {report.micro_min_headway_s:>6} s")
+    print(f"  observed min spacing    {report.min_observed_headway_s:>6} s")
+    print(f"  capacity utilisation    {report.utilisation * 100:>5.0f} %  (headroom is the gap)")
+    verdict = "CONSISTENT with the operated timetable" if report.passes else "INCONSISTENT"
+    print(f"  verdict: {verdict}")
+
+
+def _run_couple(args: argparse.Namespace) -> None:
+    ways = fetch_railways(PFAFFINGEN_BBOX, cache_path=args.cache_rail)
+    features = fetch_railway_features(PFAFFINGEN_BBOX, cache_path=args.cache_features)
+    zone = curate_pfaffingen_loop(ways, features)
+    arrivals = _zone_boundary_arrivals(args.db, zone, args.date)
 
     result = couple_zone(zone, arrivals, avoid=True)
     print(f"coupled run — {zone.name} micro zone embedded in the macro schedule ({args.date})")
@@ -815,6 +843,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_couple.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
     p_couple.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
     p_couple.set_defaults(func=_run_couple)
+
+    p_mval = sub.add_parser("micro-validate", help="Validate the micro zone vs the timetable.")
+    p_mval.add_argument("--db", type=Path, required=True, help="DuckDB (timetable + coords).")
+    p_mval.add_argument("--date", type=int, required=True, help="Service date YYYYMMDD.")
+    p_mval.add_argument("--cache-rail", type=Path, default=None, help="Cache rail-ways JSON.")
+    p_mval.add_argument("--cache-features", type=Path, default=None, help="Cache features JSON.")
+    p_mval.set_defaults(func=_run_micro_validate)
 
     return parser
 

@@ -23,6 +23,11 @@ from dbsim.analysis.conflicts import (
     detect_conflicts,
     planned_occupations,
 )
+from dbsim.analysis.micro_validation import (
+    MicroValidationReport,
+    micro_min_headway_s,
+    validate_micro_zone,
+)
 from dbsim.analysis.stairway import StairwayTrain, minimum_headway_s, render_stairway
 from dbsim.analysis.validation import (
     ValidationPair,
@@ -37,6 +42,7 @@ __all__ = [
     "Conflict",
     "Corridor",
     "CorridorStation",
+    "MicroValidationReport",
     "Occupation",
     "SegmentOccupancy",
     "StairwayTrain",
@@ -46,6 +52,7 @@ __all__ = [
     "build_corridor",
     "detect_conflicts",
     "extract_train_paths",
+    "micro_min_headway_s",
     "minimum_headway_s",
     "planned_occupations",
     "render_bildfahrplan",
@@ -54,4 +61,5 @@ __all__ = [
     "run_validation",
     "segment_entries_from_paths",
     "uic406_occupancy",
+    "validate_micro_zone",
 ]
