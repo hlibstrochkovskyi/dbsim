@@ -256,10 +256,10 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Deliverable:** optimal-vs-heuristic comparison. On the canonical delayed meet AMCC is **provably optimal** (matches the CP-SAT lower bound, both 2320 s vs priority 3520 s). On a harder 3-train/3-resource instance AMCC leaves a **quantified 300 s gap (15%)** below the optimum, which CP-SAT closes by reordering the contended resource.
 - **Acceptance:** solver returns feasible optimal schedules on small instances (feasibility re-checked independently in tests); gap to the heuristic is quantified (0 s on the meet, 300 s on the 3-train case). ✅
 
-### M4.3 — Monte Carlo robustness · `M`
-- [ ] Sample primary-delay distributions (calibrated from GTFS-RT); run N seeded replications; analyze outcome distributions.
-- **Deliverable:** a robustness study (delay percentiles, fragility hotspots).
-- **Acceptance:** distributional results are stable; fragile points in the timetable are identified.
+### M4.3 — Monte Carlo robustness · `M` ✅
+- [x] `analysis/montecarlo.py`: a `DelayModel` calibrated from a real GTFS-RT snapshot (non-parametric bootstrap — `p_delayed` + empirical magnitude pool, inheriting the feed's heavy tail), then `run_montecarlo` over N seeded replications (each RNG derived from the experiment `base_seed`, so the whole experiment is reproducible), aggregating total-delay percentiles and a per-station fragility ranking. `dbsim montecarlo` (RT-calibrated or manual flags).
+- **Deliverable:** a robustness study ([`docs/robustness-study.md`](../docs/robustness-study.md)) — RT-calibrated (P(late)=12.7%, tail to 123 min); on the Frankfurt–Hannover corridor the network total-delay distribution is strongly right-skewed (p50 173 min, p95 1148 min, max 3513 min over 500 reps), and **Frankfurt Hbf is the most fragile node** (top-5 hotspot on 39% of days).
+- **Acceptance:** distributional results are stable (reproducible from `base_seed` — verified by output hash; two independent halves agree within 15%) and fragile points are identified (non-degenerate ranking led by the corridor's principal junction). ✅
 
 ### M4.4 — ⭐ Strategy comparison study · `M`
 *The tool's proof of value.*

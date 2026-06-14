@@ -16,15 +16,19 @@ from pathlib import Path
 
 from dbsim.analysis import (
     DEFAULT_CORRIDOR,
+    DelayModel,
     StairwayTrain,
     build_corridor,
+    calibrate,
     detect_conflicts,
     extract_train_paths,
     minimum_headway_s,
+    origin_delays_from_snapshot,
     planned_occupations,
     render_bildfahrplan,
     render_scatter,
     render_stairway,
+    run_montecarlo,
     run_validation,
     segment_entries_from_paths,
     uic406_occupancy,
@@ -281,6 +285,71 @@ def _run_simulate(args: argparse.Namespace) -> None:
             run_hash=run_hash,
         )
         print(f"  recording -> {args.record}")
+
+
+# ---------------------------------------------------------------------------
+# `montecarlo` — robustness over N seeded replications (M4.3)
+# ---------------------------------------------------------------------------
+
+
+def _build_delay_model(args: argparse.Namespace) -> DelayModel:
+    """Calibrate from a GTFS-RT snapshot, or build a manual model from flags."""
+    if args.snapshot is not None:
+        delays = origin_delays_from_snapshot(args.snapshot)
+        return calibrate(delays, threshold_s=args.threshold)
+    # Manual fallback: a degenerate pool at --mean-delay, fired with --p-delayed.
+    return DelayModel(
+        p_delayed=args.p_delayed,
+        magnitudes_s=(args.mean_delay,),
+        threshold_s=args.threshold,
+    )
+
+
+def _run_montecarlo(args: argparse.Namespace) -> None:
+    names = (
+        tuple(s.strip() for s in args.stations.split(";")) if args.stations else DEFAULT_CORRIDOR
+    )
+    with Timetable(args.db) as tt:
+        if args.all:
+            scope = "national macro"
+            trip_ids: set[str] | None = None
+        else:
+            corridor = build_corridor(tt, names)
+            trip_ids = {p.trip_id for p in extract_train_paths(tt, corridor, args.date)}
+            scope = f"corridor {names[0]} – {names[-1]}"
+        schedules = load_schedules(tt, args.date, trip_ids)
+        stop_names = {
+            str(r[0]): str(r[1])
+            for r in tt.connection.execute("SELECT stop_id, stop_name FROM stops").fetchall()
+        }
+
+    model = _build_delay_model(args)
+    source = f"GTFS-RT snapshot {args.snapshot.name}" if args.snapshot else "manual flags"
+    result = run_montecarlo(
+        schedules,
+        model,
+        n_reps=args.reps,
+        base_seed=args.seed,
+        min_dwell_s=args.min_dwell,
+    )
+
+    pcts = result.total_delay_percentiles()
+    print(f"Monte Carlo robustness — {scope} on {args.date}: {len(schedules)} trains")
+    print(f"  replications        {args.reps:>10,}   (base seed {args.seed})")
+    print(f"  delay model         calibrated from {source}")
+    print(
+        f"  P(train late)       {model.p_delayed * 100:>9.1f} %   "
+        f"mean primary {model.mean_primary_s / 60:.1f} min/train"
+    )
+    print(f"  mean total delay    {result.mean_total_delay_s() / 60:>9.0f} min")
+    print("  total-delay percentiles across replications:")
+    print(f"    p50 {pcts[0.5] / 60:>8.0f} min   p90 {pcts[0.9] / 60:>8.0f} min")
+    print(f"    p95 {pcts[0.95] / 60:>8.0f} min   max {pcts[1.0] / 60:>8.0f} min")
+    print(f"  fragility hotspots (top {min(8, args.reps)} stations by mean accumulated delay):")
+    print(f"    {'station':<32} {'mean delay':>11} {'hotspot share':>14}")
+    for stop_id, mean_s, share in result.fragility(top=8):
+        label = stop_names.get(stop_id, stop_id)[:32]
+        print(f"    {label:<32} {mean_s / 60:>8.0f} min {share * 100:>12.0f} %")
 
 
 # ---------------------------------------------------------------------------
@@ -843,6 +912,30 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_run.add_argument("--record", type=Path, default=None, help="Write a Parquet recording.")
     p_run.set_defaults(func=_run_simulate)
+
+    p_mc = sub.add_parser(
+        "montecarlo", help="Monte Carlo robustness over N seeded replications (M4.3)."
+    )
+    p_mc.add_argument("--date", required=True, help="Service date as YYYYMMDD.")
+    p_mc.add_argument("--db", type=Path, required=True, help="DuckDB path.")
+    p_mc.add_argument("--all", action="store_true", help="All trains, not a corridor.")
+    p_mc.add_argument("--stations", default=None, help="Corridor names (semicolon-separated).")
+    p_mc.add_argument("--reps", type=int, default=200, help="Number of replications.")
+    p_mc.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Experiment base seed.")
+    p_mc.add_argument("--min-dwell", type=int, default=0, help="Minimum dwell seconds.")
+    p_mc.add_argument(
+        "--snapshot", type=Path, default=None, help="GTFS-RT .pb to calibrate the delay model."
+    )
+    p_mc.add_argument(
+        "--threshold", type=int, default=60, help="Origin delay (s) counted as a primary delay."
+    )
+    p_mc.add_argument(
+        "--p-delayed", type=float, default=0.3, help="Manual P(train late) when no --snapshot."
+    )
+    p_mc.add_argument(
+        "--mean-delay", type=int, default=300, help="Manual primary delay (s) when no --snapshot."
+    )
+    p_mc.set_defaults(func=_run_montecarlo)
 
     p_replay = sub.add_parser("replay", help="Read back a recording (M1.3).")
     p_replay.add_argument("recording", type=Path, help="Recording Parquet path.")

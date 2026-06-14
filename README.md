@@ -140,6 +140,21 @@ uv run dbsim reschedule --delay 1000
 uv run dbsim optimal
 ```
 
+### Monte Carlo robustness (M4.3)
+
+```bash
+# N seeded replications with a primary-delay model calibrated from a real
+# GTFS-RT snapshot. Reports total-delay percentiles + fragility hotspots.
+uv run dbsim montecarlo --db data/processed/gtfs-fv.duckdb --date 20260616 \
+    --reps 500 --snapshot data/raw/gtfsrt/<date>/snapshot-*.pb
+
+# Without a snapshot, drive a manual model (P(late) and mean primary delay):
+uv run dbsim montecarlo --db data/processed/gtfs-fv.duckdb --date 20260616 \
+    --reps 200 --p-delayed 0.3 --mean-delay 300
+```
+
+The methodology and results are written up in [`docs/robustness-study.md`](docs/robustness-study.md).
+
 ## Project status
 
 Phase 0 in progress:
@@ -187,7 +202,8 @@ Phase 4 in progress:
 
 - **M4.1 — alternative-graph dispatcher (v2)** ✅ — AMCC rescheduling beats the priority rule on a disruption (`dbsim reschedule`).
 - **M4.2 — MILP / CP optimal baseline** ✅ — CP-SAT (OR-Tools) optimum: AMCC is provably optimal on the meet, with a quantified 15% gap on a harder 3-train case (`dbsim optimal`).
-- **M4.3 — Monte Carlo robustness** — next.
+- **M4.3 — Monte Carlo robustness** ✅ — RT-calibrated primary-delay model over N seeded replications; delay percentiles + fragility hotspots ([`docs/robustness-study.md`](docs/robustness-study.md)).
+- **M4.4 — ⭐ strategy comparison study** — next.
 
 ## Repository layout
 
