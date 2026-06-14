@@ -23,6 +23,8 @@ from dbsim.analysis import (
     render_bildfahrplan,
     render_scatter,
     run_validation,
+    segment_entries_from_paths,
+    uic406_occupancy,
 )
 from dbsim.dispatch import DISPATCHERS
 from dbsim.engine import (
@@ -360,6 +362,44 @@ def _run_segments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _run_capacity(args: argparse.Namespace) -> None:
+    names = tuple(s.strip() for s in args.stations.split(";"))
+    with Timetable(args.db) as tt:
+        bild = build_corridor(tt, names)
+        paths = extract_train_paths(tt, bild, args.date)
+    station_dists = [s.distance_km for s in bild.stations]
+    coords = [(s.name, s.lat, s.lon) for s in bild.stations]
+
+    bbox = bbox_around([(la, lo) for _, la, lo in coords], margin_deg=0.02)
+    segments = build_corridor_segments(coords, fetch_railways(bbox, cache_path=args.cache))
+    corridor = meso_corridor_from_segments(segments, headway_s=args.headway)
+
+    entries = segment_entries_from_paths(station_dists, len(corridor.segments), paths)
+    report = uic406_occupancy(corridor, entries, window_s=args.window, threshold=args.threshold)
+
+    start, end = report.window_start_s, report.window_start_s + report.window_s
+    print(f"UIC 406 capacity — {names[0]} … {names[-1]} ({args.date})")
+    print(f"  {len(paths)} corridor trains; peak window {format_hms(start)}–{format_hms(end)}")
+    for s in report.segments:
+        kind = "single" if s.capacity <= 1 else f"{s.capacity}-track"
+        flag = (
+            "  <-- bottleneck"
+            if s.segment_index == (report.bottleneck.segment_index if report.bottleneck else -1)
+            else ""
+        )
+        print(
+            f"  seg{s.segment_index} {s.segment_name}: {s.n_trains:>2} trains ({kind})  "
+            f"{s.occupancy_rate * 100:5.1f}%{flag}"
+        )
+    b = report.bottleneck
+    if b is not None:
+        verdict = "OVER" if report.over_threshold else "within"
+        print(
+            f"  bottleneck: {b.segment_name} at {b.occupancy_rate * 100:.1f}% "
+            f"({verdict} the {report.threshold * 100:.0f}% UIC threshold)"
+        )
+
+
 def _run_scenario_cmd(args: argparse.Namespace) -> None:
     scenario = Scenario.load(args.file)
     corridor = build_corridor_for_scenario(scenario, args.db, cache_path=args.cache)
@@ -580,6 +620,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p_scn.add_argument("--db", type=Path, required=True, help="DuckDB for station coordinates.")
     p_scn.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
     p_scn.set_defaults(func=_run_scenario_cmd)
+
+    p_cap = sub.add_parser("capacity", help="UIC 406 capacity analysis for a corridor (M2.6).")
+    p_cap.add_argument("--stations", required=True, help="Ordered station names (semicolon-sep).")
+    p_cap.add_argument("--db", type=Path, required=True, help="DuckDB (timetable + coordinates).")
+    p_cap.add_argument("--date", type=int, required=True, help="Service date YYYYMMDD.")
+    p_cap.add_argument("--cache", type=Path, default=None, help="Cache the Overpass JSON here.")
+    p_cap.add_argument("--headway", type=int, default=120, help="Minimum headway seconds.")
+    p_cap.add_argument("--window", type=int, default=3600, help="Analysis window seconds.")
+    p_cap.add_argument("--threshold", type=float, default=0.75, help="UIC occupancy threshold.")
+    p_cap.set_defaults(func=_run_capacity)
 
     return parser
 

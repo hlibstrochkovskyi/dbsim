@@ -180,10 +180,11 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - **Acceptance:** a scenario file reproducibly produces the intended disruption. ✅
   - The example reproducibly: closes Pfäffingen–Entringen for 30 min (trains held), slows Tübingen–Unterjesingen ×1.5 (199 s → 298 s), runs two opposing RBs to completion conflict-free. Deterministic; round-trips through JSON.
 
-### M2.6 — UIC 406 capacity analysis · `M`
-- [ ] Blocking-time compression on a corridor to compute capacity utilization.
-- **Deliverable:** a capacity-utilization report for a line.
-- **Acceptance:** results are sane and interpretable (utilization %, bottleneck identified).
+### M2.6 — UIC 406 capacity analysis · `M` ✅
+- [x] Blocking-time compression per segment: occupancy = n_trains × (running + headway) / capacity over the auto-detected **peak window**; train counts interpolated from the Bildfahrplan paths (M0.4), capacity/headway from OSM segments (M2.1). Reports occupancy % per segment, the bottleneck, and a UIC threshold flag. `dbsim capacity`.
+- **Deliverable:** a capacity-utilization report for a line. ✅
+- **Acceptance:** results are sane and interpretable (utilization %, bottleneck identified). ✅
+  - Ammertalbahn (104 corridor trains, peak 06:19–07:19): bottleneck = Tübingen–Unterjesingen at **79.8%** (single-track, **over** the 75% UIC threshold); the double-track approach is only 10.9% (capacity halves occupancy).
 
 ---
 

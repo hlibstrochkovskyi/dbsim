@@ -11,6 +11,12 @@ from dbsim.analysis.bildfahrplan import (
     extract_train_paths,
     render_bildfahrplan,
 )
+from dbsim.analysis.capacity import (
+    CapacityReport,
+    SegmentOccupancy,
+    segment_entries_from_paths,
+    uic406_occupancy,
+)
 from dbsim.analysis.conflicts import (
     Conflict,
     Occupation,
@@ -26,10 +32,12 @@ from dbsim.analysis.validation import (
 
 __all__ = [
     "DEFAULT_CORRIDOR",
+    "CapacityReport",
     "Conflict",
     "Corridor",
     "CorridorStation",
     "Occupation",
+    "SegmentOccupancy",
     "TrainPath",
     "ValidationPair",
     "ValidationReport",
@@ -40,4 +48,6 @@ __all__ = [
     "render_bildfahrplan",
     "render_scatter",
     "run_validation",
+    "segment_entries_from_paths",
+    "uic406_occupancy",
 ]
