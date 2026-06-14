@@ -81,19 +81,11 @@ def parse_overpass(data: dict[str, Any]) -> list[RailWay]:
     return [rw for el in data.get("elements", []) if (rw := _to_railway(el)) is not None]
 
 
-def fetch_railways(
-    bbox: BBox,
-    *,
-    url: str = OVERPASS_URL,
-    timeout: float = 180.0,
-    cache_path: Path | None = None,
-) -> list[RailWay]:
-    """Fetch ``railway=rail`` ways in ``bbox`` (cached to ``cache_path`` if given)."""
+def _overpass(query: str, *, url: str, timeout: float, cache_path: Path | None) -> dict[str, Any]:
+    """POST an Overpass query (or read a cached response), returning parsed JSON."""
     if cache_path is not None and cache_path.exists():
-        data = json.loads(cache_path.read_text(encoding="utf-8"))
-        return parse_overpass(data)
-
-    body = urllib.parse.urlencode({"data": overpass_query(bbox)}).encode()
+        return json.loads(cache_path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+    body = urllib.parse.urlencode({"data": query}).encode()
     request = urllib.request.Request(
         url,
         data=body,
@@ -104,11 +96,135 @@ def fetch_railways(
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         raw = response.read()
-    data = json.loads(raw)
     if cache_path is not None:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_bytes(raw)
+    return json.loads(raw)  # type: ignore[no-any-return]
+
+
+def fetch_railways(
+    bbox: BBox,
+    *,
+    url: str = OVERPASS_URL,
+    timeout: float = 180.0,
+    cache_path: Path | None = None,
+) -> list[RailWay]:
+    """Fetch ``railway=rail`` ways in ``bbox`` (cached to ``cache_path`` if given)."""
+    data = _overpass(overpass_query(bbox), url=url, timeout=timeout, cache_path=cache_path)
     return parse_overpass(data)
+
+
+# ---------------------------------------------------------------------------
+# Microscopic point features: signals, switches, buffer stops, crossings (M3)
+# ---------------------------------------------------------------------------
+
+#: OSM ``railway`` values for the point features a microscopic model needs.
+_FEATURE_KINDS = ("signal", "switch", "buffer_stop", "railway_crossing", "crossing", "derail")
+
+
+@dataclass(frozen=True, slots=True)
+class RailwayNode:
+    """A microscopic OSM point feature (signal, switch, buffer stop, …)."""
+
+    osm_id: int
+    kind: str  # one of _FEATURE_KINDS
+    lat: float
+    lon: float
+    signal_type: str | None  # for signals: main / distant / combined / shunting / …
+    direction: str | None  # for signals: forward / backward (which way it faces)
+
+
+@dataclass(frozen=True, slots=True)
+class RailwayFeatures:
+    """Microscopic point features in a zone, grouped by kind."""
+
+    signals: tuple[RailwayNode, ...]
+    switches: tuple[RailwayNode, ...]
+    buffer_stops: tuple[RailwayNode, ...]
+    crossings: tuple[RailwayNode, ...]
+
+    def counts(self) -> dict[str, int]:
+        return {
+            "signals": len(self.signals),
+            "switches": len(self.switches),
+            "buffer_stops": len(self.buffer_stops),
+            "crossings": len(self.crossings),
+        }
+
+    def typed_signal_fraction(self) -> float:
+        """Share of signals carrying a usable type (not a bare ``railway=signal``)."""
+        if not self.signals:
+            return 0.0
+        return sum(1 for s in self.signals if s.signal_type is not None) / len(self.signals)
+
+    def directional_signal_fraction(self) -> float:
+        """Share of signals whose facing direction is known."""
+        if not self.signals:
+            return 0.0
+        return sum(1 for s in self.signals if s.direction is not None) / len(self.signals)
+
+
+def railway_features_query(bbox: BBox) -> str:
+    """Overpass QL for the microscopic point features in ``bbox``."""
+    south, west, north, east = bbox
+    pattern = "|".join(_FEATURE_KINDS)
+    return (
+        "[out:json][timeout:120];"
+        f'node["railway"~"^({pattern})$"]({south},{west},{north},{east});'
+        "out;"
+    )
+
+
+def _signal_attrs(tags: dict[str, str]) -> tuple[str | None, str | None]:
+    """Extract a signal's (type, direction) from its tags."""
+    signal_type: str | None = None
+    for sub in ("main", "distant", "combined", "shunting", "crossing", "minor"):
+        if f"railway:signal:{sub}" in tags:
+            signal_type = sub
+            break
+    return signal_type, tags.get("railway:signal:direction")
+
+
+def _to_feature(element: dict[str, Any]) -> RailwayNode | None:
+    if element.get("type") != "node" or "lat" not in element:
+        return None
+    tags = element.get("tags", {})
+    kind = tags.get("railway")
+    if kind not in _FEATURE_KINDS:
+        return None
+    signal_type, direction = _signal_attrs(tags) if kind == "signal" else (None, None)
+    return RailwayNode(
+        osm_id=int(element["id"]),
+        kind=kind,
+        lat=float(element["lat"]),
+        lon=float(element["lon"]),
+        signal_type=signal_type,
+        direction=direction,
+    )
+
+
+def parse_railway_features(data: dict[str, Any]) -> RailwayFeatures:
+    """Parse an Overpass JSON response into grouped :class:`RailwayFeatures`."""
+    nodes = [n for el in data.get("elements", []) if (n := _to_feature(el)) is not None]
+    crossing_kinds = {"crossing", "railway_crossing"}
+    return RailwayFeatures(
+        signals=tuple(n for n in nodes if n.kind == "signal"),
+        switches=tuple(n for n in nodes if n.kind == "switch"),
+        buffer_stops=tuple(n for n in nodes if n.kind == "buffer_stop"),
+        crossings=tuple(n for n in nodes if n.kind in crossing_kinds),
+    )
+
+
+def fetch_railway_features(
+    bbox: BBox,
+    *,
+    url: str = OVERPASS_URL,
+    timeout: float = 180.0,
+    cache_path: Path | None = None,
+) -> RailwayFeatures:
+    """Fetch microscopic point features in ``bbox`` (cached if ``cache_path`` given)."""
+    data = _overpass(railway_features_query(bbox), url=url, timeout=timeout, cache_path=cache_path)
+    return parse_railway_features(data)
 
 
 def bbox_around(coords: list[tuple[float, float]], *, margin_deg: float = 0.03) -> BBox:

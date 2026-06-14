@@ -159,7 +159,12 @@ Phase 2 in progress:
 - **M2.5 — disruption scenario format** ✅ — declarative JSON scenarios (closures, speed restrictions).
 - **M2.6 — UIC 406 capacity analysis** ✅ — blocking-time compression; per-segment occupancy + bottleneck.
 
-**Phase 2 complete.** Next: Phase 3 (microscopic zone) / Phase 4 (advanced rescheduling & robustness).
+**Phase 2 complete.**
+
+Phase 3 in progress:
+
+- **M3.1.0 — zone-coverage survey** ✅ — chose the micro zone from OSM coverage evidence ([`docs/zone-survey.md`](docs/zone-survey.md)): the Ammertalbahn Pfäffingen passing loop.
+- **M3.1 — curate the zone** — next.
 
 ## Repository layout
 

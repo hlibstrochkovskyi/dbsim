@@ -192,8 +192,18 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 
 *Goal: signal-level fidelity for one node/corridor. Could be a thesis topic on its own.*
 
+> **Discipline (carried from prior phases):** the micro layer gets the **same
+> rigor from its first commit** — determinism test in M3.2, boundary-consistency
+> test in M3.4, a micro-validation harness (M3.5). "Mostly working" is not done.
+
+### M3.1.0 — Zone-coverage survey · `S` ✅
+*De-risk the zone before curating it — front-load the project's biggest external-data unknown (OSM micro coverage).*
+- [x] OSM micro-feature ingestion (`fetch_railway_features`: signals w/ type+direction, switches, buffer stops, crossings). Surveyed candidate zones; measured coverage + passing loops. See [`docs/zone-survey.md`](zone-survey.md).
+- **Acceptance:** a zone chosen from measured evidence. ✅
+  - **Chosen: Ammertalbahn, scoped to the Pfäffingen passing loop** (97 switches / 247 signals over the line; signal direction known for 99%; loops cleanly mapped at Pfäffingen & Altingen). Frankfurt throat **rejected** (267 switches in one node — well-mapped but brutal).
+
 ### M3.1 — Pick & curate one zone · `L`
-- [ ] Choose a zone (e.g. Frankfurt Hbf throat, or a single-track regional line where meets matter); hand-curate micro infrastructure from OSM/OpenRailwayMap (tracks, switches, signals, platform tracks, blocks).
+- [ ] Curate the Pfäffingen-loop micro-infrastructure from OSM/OpenRailwayMap (tracks, switches, signals, platform tracks, blocks) — zone already chosen in M3.1.0.
 - **Deliverable:** a validated micro-infrastructure model of the zone.
 - **Acceptance:** track layout, signal/block positions match reality on inspection.
 
@@ -211,6 +221,18 @@ A multi-scale, event-driven railway simulation built as a **study tool** for ins
 - [ ] Hand off trains at the zone boundary (macro → micro arrivals, micro → macro departures).
 - **Deliverable:** a run with the micro zone embedded in the national macro model.
 - **Acceptance:** boundary hand-offs are time-consistent; the coupled run is deterministic.
+
+### M3.5 — Micro-validation harness · `M` *(added)*
+*Mirror M1.4 at micro grain — micro errors compound fast, so validate, don't trust.*
+- [ ] Compare the simulated zone's throughput/occupancy/timings against observed train counts on a real day (from GTFS + GTFS-RT through the loop).
+- **Deliverable:** a micro-validation report for the zone.
+- **Acceptance:** simulated zone behaviour matches observed within a quantified, discussed gap.
+
+> **Roadmap beyond v1** (shape to be decided by what M3.4 teaches, not over-specified now):
+> stochastic microscopic operation (sampled dwell/acceleration, micro-grain primary delays)
+> → microscopic Monte Carlo → **multiple coupled micro zones** handing trains off through
+> the macro network (study how a disruption at one micro node re-materialises as congestion
+> at a distant one — a question neither pure-macro nor single-zone-micro tools can answer).
 
 ---
 
