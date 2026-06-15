@@ -1,5 +1,8 @@
 # dbsim — Deutsche Bahn Simulation
 
+[![CI](https://github.com/hlibstrochkovskyi/dbsim/actions/workflows/ci.yml/badge.svg)](https://github.com/hlibstrochkovskyi/dbsim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A headless, event-driven simulation of the German railway network, built as a
 research instrument for studying how delays propagate across a timetable, where
 capacity bottlenecks form, and which dispatching strategies best contain

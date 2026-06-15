@@ -33,8 +33,10 @@ data/processed/**
 *.parquet
 *.duckdb
 
-# Generated diagrams (regenerable via `dbsim bildfahrplan`)
+# Generated diagrams (regenerable via `dbsim bildfahrplan` etc.).
+# Documentation figures live under docs/ and are kept.
 viz/*.png
+/*.png
 
 # Notebook checkpoints
 .ipynb_checkpoints/
