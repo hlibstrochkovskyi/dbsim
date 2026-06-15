@@ -1,0 +1,9 @@
+{
+  "source": "gtfs.de nv_free (DELFI national GTFS, nv)",
+  "url": "https://download.gtfs.de/germany/nv_free/latest.zip",
+  "retrieved_at": "2026-06-14T22:27:39.379398+00:00",
+  "snapshot_date": "2026-06-14",
+  "sha256": "a31dcba1ff4f35fcbf4b0d5dabb88e08aab239c35e1e6d7492ac60eaf5ca18e1",
+  "size_bytes": 256594859,
+  "license": "CC-BY 4.0 (data: DELFI e.V., via gtfs.de)"
+}
