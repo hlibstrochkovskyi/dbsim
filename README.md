@@ -1,239 +1,309 @@
 # dbsim — Deutsche Bahn Simulation
 
-A headless, event-driven simulation of the German rail network, built as a **study
-tool** for investigating network-wide **delay propagation**, capacity bottlenecks,
-and dispatching strategies.
+A headless, event-driven simulation of the German railway network, built as a
+research instrument for studying how delays propagate across a timetable, where
+capacity bottlenecks form, and which dispatching strategies best contain
+disruption. It is an analysis tool rather than a renderer or a game: the engine
+runs without a user interface and emits a recording, and visualisation reads that
+recording afterward.
 
-> This is a research/analysis tool, not a renderer or game. The engine runs headless
-> and emits a recording; visualization reads the recording afterward.
+The leading research question is **delay propagation** — given a primary delay,
+where does it spread, how far, and how does the choice of dispatching rule change
+the outcome.
 
-See [`plan/db-sim-implementation-plan.md`](plan/db-sim-implementation-plan.md) for the
-full multi-phase plan. The leading research question is **delay propagation**.
+## Design principles
 
-## Core principles
+- **Deterministic per seed.** A run is a pure function of its inputs and a single
+  random seed; the same pair reproduces byte-for-byte. All randomness is routed
+  through one seeded generator, and run hashes are compared in the test suite.
+- **Headless core, separate visualisation.** The simulation has no live
+  rendering or inter-process streaming. It produces a self-describing recording;
+  diagrams and replays are derived from it.
+- **Multi-scale.** The network is modelled at three levels of resolution —
+  macroscopic (national timetable), mesoscopic (track segments and contention),
+  and microscopic (one curated zone, signal by signal).
+- **Swappable dispatching.** Conflict resolution is a pluggable interface, so
+  competing strategies can be compared on identical instances.
+- **Grounded in real data and theory.** Timetables, live delays, and track
+  geometry come from public feeds; the models follow established railway
+  operations theory (blocking-time stairways, UIC 406 capacity, the
+  alternative-graph dispatching model).
 
-- **Deterministic per seed** — same inputs + same seed → byte-identical run. Tested in CI.
-- **Headless core + recording** — no live streaming/IPC.
-- **Multi-scale** — macroscopic nationally, microscopic for one curated zone.
-- **Swappable dispatcher** — conflict resolution is a pluggable interface.
-- **Event-driven, not tick-based** — a `heapq` event loop.
+## How it works
 
-## Getting started
+### Execution model
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
+The core is a discrete-event simulation. A single priority queue (`heapq`) of
+timestamped events advances the clock from one event to the next, rather than in
+fixed time steps, so the cost of a run scales with the number of events rather
+than with simulated duration. Every stochastic decision draws from one seeded
+generator (`seed.py`), with independent sub-streams derived by hashing a label
+into a child seed. This makes a run reproducible across processes and platforms.
+
+### Data layer
+
+Static timetables come from the gtfs.de GTFS feeds and are normalised into a
+columnar DuckDB store. Live punctuality comes from the GTFS-RT `TripUpdate` feed.
+Infrastructure geometry — track counts, signals, and switches — is extracted from
+OpenStreetMap through the Overpass API. None of this data is committed to the
+repository; a small `source.json` manifest pins each download (see
+[`docs/data-versioning.md`](docs/data-versioning.md)).
+
+### Macroscopic scale
+
+The national timetable is compiled into a time-expanded graph in `rustworkx`:
+nodes are (station, time) events and edges are train runs and feasible transfers.
+Earliest-arrival journeys are shortest paths over this graph. Simulation drives
+each train through its scheduled stops; the delay model injects primary delays,
+recovers slack within dwell margins, and holds connecting services within
+configured transfer and maximum-wait limits. Propagation is strictly causal — a
+delay can never move an event earlier than its schedule. A full national service
+day simulates in a few seconds, which kept the engine in Python (see
+[`docs/performance-profile.md`](docs/performance-profile.md)).
+
+Against live data, simulated downstream delays correlate with observed delays
+(r ≈ 0.47 overall, higher on materially delayed trains), confirming the
+propagation model is calibrated rather than merely plausible
+([`docs/validation-report.md`](docs/validation-report.md)).
+
+### Mesoscopic scale
+
+Station-to-station segments are classified as single- or double-track by counting
+parallel ways across OpenStreetMap cross-sections. Each segment is then a
+capacity-constrained resource that trains acquire and release under a
+minimum-headway constraint derived from blocking-time theory; opposing movements
+on single track must therefore resolve their meet at a station. Oversubscription
+is detected as a conflict before dispatching, and a pluggable `Dispatcher`
+resolves the remaining contention. Capacity is quantified by UIC 406
+blocking-time compression, yielding per-segment occupancy and the corridor
+bottleneck.
+
+### Microscopic scale
+
+One zone — the Pfäffingen passing loop on the Ammertalbahn, chosen from a survey
+of OpenStreetMap coverage ([`docs/zone-survey.md`](docs/zone-survey.md)) — is
+modelled to the individual signal and switch. Blocking-time stairways are
+computed from speed profiles via forward and backward passes over each route,
+giving the minimum headway between successive movements. Opposing trains are
+routed to a free loop track to avoid deadlock, and the zone's occupancy is
+coupled back into the macroscopic schedule at its boundary, so microscopic
+contention becomes macroscopic delay ([`docs/micro-validation.md`](docs/micro-validation.md)).
+
+### Dispatching and optimisation
+
+Track contention is formalised as an alternative graph (Mascis & Pacciarelli):
+fixed arcs encode each train's route, and a disjunctive pair on every shared
+resource encodes the ordering decision. Three solvers operate on the same graph:
+
+- a **priority rule**, which always favours the higher-priority train;
+- the **AMCC** heuristic (Avoid Most Critical Completion), which selects
+  orderings greedily while staying cycle-free;
+- a **CP-SAT** model (OR-Tools) that returns the minimum-makespan schedule.
+
+The CP-SAT optimum is a lower bound against which the heuristic is measured, so
+the cost of using a fast heuristic instead of an exact solver can be quantified
+exactly.
+
+### Robustness analysis
+
+A Monte Carlo harness calibrates a primary-delay model from the empirical GTFS-RT
+delay distribution — the probability a train starts late and a non-parametric
+bootstrap pool of how late — then runs N reproducible replications, each with an
+independent seed derived from a base seed. It reports the outcome distribution:
+delay percentiles across simulated days and the stations that most consistently
+accumulate delay (the network's fragile points). The same machinery drives the
+strategy comparison, evaluating the three dispatchers across a common ensemble of
+disruptions.
+
+## Installation
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
 
 ```bash
-uv sync                 # create the venv and install dev deps
-uv run dbsim sim        # run the hello-world sim loop (prints a run hash)
-uv run pytest           # run the test suite (incl. determinism harness)
-uv run ruff check .     # lint
-uv run ruff format --check .
-uv run mypy             # type-check
+uv sync                      # create the virtual environment and install deps
+uv run dbsim sim             # smoke test: a deterministic event-loop run hash
+uv run pytest                # test suite, including the determinism harness
+uv run ruff check .          # lint
+uv run ruff format --check . # formatting
+uv run mypy                  # static type checking
 ```
 
-### Ingest the timetable (M0.2)
+## Usage
+
+The tool is a single command, `dbsim`, with subcommands. Each accepts
+`--help`. The examples below assume a timetable has been ingested.
+
+### Timetable ingestion and queries
 
 ```bash
-# Download the gtfs.de long-distance (ICE/IC) feed and load it into DuckDB.
+# Download a gtfs.de feed and load it into DuckDB.
+# `fv` is the long-distance (ICE/IC) network; `free` is the full national feed.
 uv run dbsim ingest --feed fv
 
-# "All trains through Frankfurt Hbf on a given Tuesday":
+# All trains calling at a station on a given date.
 uv run dbsim query trains "Frankfurt(Main)Hbf" --date 20260616 \
     --db data/processed/gtfs-fv.duckdb
 
-# Reconstruct a specific train's full scheduled stop sequence:
+# The full scheduled stop sequence of a single trip.
 uv run dbsim query trip 124021 --db data/processed/gtfs-fv.duckdb
 ```
 
-### Build the timetable graph & plan journeys (M0.3)
+### Journey planning and the time–distance diagram
 
 ```bash
-# Graph statistics (event nodes/edges, stations, connectivity) for a date:
+# Time-expanded graph statistics (event nodes/edges, stations, connectivity).
 uv run dbsim graph --date 20260616 --db data/processed/gtfs-fv.duckdb
 
-# Earliest-arrival journey by scheduled time (includes transfers):
+# Earliest-arrival journey, including transfers.
 uv run dbsim route "Frankfurt(Main)Hbf" "München Hbf" \
     --date 20260616 --depart-after 08:00 --db data/processed/gtfs-fv.duckdb
-```
 
-### Bildfahrplan — time–distance diagram (M0.4)
-
-```bash
-# Render the scheduled train graph for a corridor (default: Frankfurt–Hannover):
+# Bildfahrplan: the scheduled time–distance diagram for a corridor.
 uv run dbsim bildfahrplan --date 20260616 \
     --db data/processed/gtfs-fv.duckdb --out viz/bildfahrplan.png
 ```
 
-### Simulate a day (M1.1)
+### Macroscopic simulation and delay propagation
 
 ```bash
-# Drive trains through the timetable (corridor by default; --all for the nation).
-# Unperturbed, simulated times reproduce the schedule exactly and deterministically.
+# Simulate a corridor (default) or the whole network (--all). Unperturbed, the
+# simulation reproduces the published timetable exactly and deterministically.
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb --all
 
-# Inject a primary delay (TRIP:SEQ:SECONDS) and watch it cascade (M1.2):
+# Inject a primary delay (TRIP:SEQ:SECONDS) and observe the cascade.
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb \
-    --delay 124021:0:1200   # ICE 22 +20 min at Frankfurt
+    --delay 124021:0:1200          # ICE 22, +20 min at Frankfurt
 ```
 
-### Record & replay (M1.3)
+### Recording and replay
 
 ```bash
-# Emit a Parquet recording of a run, then read positions back:
+# Emit a self-describing Parquet recording, then reconstruct positions from it.
 uv run dbsim run --date 20260616 --db data/processed/gtfs-fv.duckdb --all \
     --record data/processed/run.parquet
-uv run dbsim replay data/processed/run.parquet --at 08:00 --db data/processed/gtfs-fv.duckdb
+uv run dbsim replay data/processed/run.parquet --at 08:00 \
+    --db data/processed/gtfs-fv.duckdb
 ```
 
-See `notebooks/replay.ipynb` for a worked replay (activity curve, trajectories, a map snapshot).
+`notebooks/replay.ipynb` works through a replay end to end (activity curve,
+trajectories, and a map snapshot).
 
-### Validate against GTFS-RT (M1.4)
+### Validation against real-time data
 
 ```bash
-# Capture a live real-time snapshot, then validate the model against it.
-# (Validation needs the FULL static feed — RT trip_ids match `free`, not `fv`.)
+# Capture a live snapshot, then compare the model against observed delays.
+# Validation uses the full feed, since RT trip ids match `free`, not `fv`.
 uv run dbsim rt-capture data/raw/gtfsrt/today --count 1
-uv run dbsim ingest --feed free            # one-time, downloads ~268 MB
+uv run dbsim ingest --feed free
 uv run dbsim validate data/raw/gtfsrt/today/snapshot-*.pb \
     --feed data/raw/gtfs/gtfsde-free/<date>/feed.zip --date <YYYYMMDD> \
     --scatter viz/validation.png
 ```
 
-The methodology and results are written up in [`docs/validation-report.md`](docs/validation-report.md).
-
-### Track-segment model from OSM (M2.1)
+### Track-segment model and capacity
 
 ```bash
-# Classify single- vs double-track per station-to-station segment from OpenStreetMap.
+# Classify single- vs double-track per segment from OpenStreetMap.
 uv run dbsim segments --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
 
-# Mesoscopic meet: two opposing trains contend for single-track segments (M2.2/M2.3).
+# Mesoscopic meet: opposing trains contend for single-track segments.
 uv run dbsim meso --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
 
-# Dispatch a line closure (M2.4): swap policy, close a segment over a time window.
+# Dispatch a line closure: choose a policy, close a segment over a time window.
 uv run dbsim meso --db data/processed/gtfs-free.duckdb \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg" \
     --dispatcher priority --close 1:0:1800
 
-# Run a declarative disruption scenario from a file (M2.5).
-uv run dbsim scenario scenarios/ammertal-closure.json --db data/processed/gtfs-free.duckdb
+# Run a declarative disruption scenario from a file.
+uv run dbsim scenario scenarios/ammertal-closure.json \
+    --db data/processed/gtfs-free.duckdb
 
-# UIC 406 capacity utilisation per segment + bottleneck (M2.6).
+# UIC 406 capacity utilisation per segment, with the bottleneck.
 uv run dbsim capacity --db data/processed/gtfs-free.duckdb --date 20260616 \
     --stations "Tübingen Hbf;Unterjesingen Mitte;Entringen;Herrenberg"
 ```
 
-Data is **not** committed (see [`docs/data-versioning.md`](docs/data-versioning.md));
-only a small `source.json` manifest pins each download.
-
-### Rescheduling: heuristic vs optimal (M4.1 / M4.2)
+### Microscopic zone
 
 ```bash
-# Alternative-graph AMCC (v2) vs the priority rule (v1) on a delayed meet,
-# with the CP-SAT optimal makespan as a lower bound (AMCC is optimal here).
+# Opposing trains meet at the loop without deadlock.
+uv run dbsim meet
+
+# Embed the micro zone in the macroscopic schedule and propagate its contention.
+uv run dbsim couple --date 20260616 --db data/processed/gtfs-free.duckdb
+```
+
+### Dispatching: heuristic versus optimal
+
+```bash
+# Priority rule vs AMCC vs the CP-SAT optimum on a delayed meet.
 uv run dbsim reschedule --delay 1000
 
-# Optimal-vs-heuristic on a harder 3-train zone: CP-SAT quantifies the AMCC gap.
+# Optimal-vs-heuristic on a harder three-train instance, with the gap quantified.
 uv run dbsim optimal
 ```
 
-### Monte Carlo robustness (M4.3)
+### Monte Carlo robustness
 
 ```bash
-# N seeded replications with a primary-delay model calibrated from a real
-# GTFS-RT snapshot. Reports total-delay percentiles + fragility hotspots.
+# Calibrate the delay model from a GTFS-RT snapshot, then run N replications.
+# Reports total-delay percentiles and the network's fragility hotspots.
 uv run dbsim montecarlo --db data/processed/gtfs-fv.duckdb --date 20260616 \
     --reps 500 --snapshot data/raw/gtfsrt/<date>/snapshot-*.pb
 
-# Without a snapshot, drive a manual model (P(late) and mean primary delay):
+# Without a snapshot, supply a manual model.
 uv run dbsim montecarlo --db data/processed/gtfs-fv.duckdb --date 20260616 \
     --reps 200 --p-delayed 0.3 --mean-delay 300
 ```
 
-The methodology and results are written up in [`docs/robustness-study.md`](docs/robustness-study.md).
+Methodology and results: [`docs/robustness-study.md`](docs/robustness-study.md).
 
-### Strategy comparison study (M4.4)
+### Strategy comparison
+
+This compares all three dispatchers across a Monte Carlo ensemble of disruptions
+on a contended single-track corridor. It needs no downloaded data to run with a
+manual disruption model:
 
 ```bash
-# The capstone: priority vs AMCC vs CP-SAT optimal dispatching, compared over a
-# Monte Carlo ensemble of RT-calibrated disruptions on a contended corridor.
-uv run dbsim study --reps 1000 --snapshot data/raw/gtfsrt/<date>/snapshot-*.pb
-
-# Or with a manual disruption model (no snapshot needed):
 uv run dbsim study --reps 300 --p-delayed 0.4 --mean-delay 600
 ```
 
-The written study is [`docs/strategy-comparison-study.md`](docs/strategy-comparison-study.md).
+```
+  strategy       mean      p50      p90      max   (clearance delay, min)
+  priority       99.5    101.7    110.0    111.7
+  amcc           38.1     38.3     45.0     51.7
+  optimal        38.0     38.3     45.0     51.7
+```
 
-## Project status
+Each figure is the extra time, in minutes, needed to clear every train from the
+corridor relative to free running. Alternative-graph dispatching roughly halves
+that delay against the priority rule across the whole distribution, and the AMCC
+heuristic essentially matches the CP-SAT optimum. To calibrate the disruptions
+from real data instead, pass a snapshot:
 
-Phase 0 in progress:
+```bash
+uv run dbsim study --reps 1000 --snapshot data/raw/gtfsrt/<date>/snapshot-*.pb
+```
 
-- **M0.1 — skeleton & determinism harness** ✅ — deterministic event loop + run hashing.
-- **M0.2 — GTFS ingestion** ✅ — gtfs.de feed → canonical DuckDB tables; station/trip queries.
-- **M0.3 — macroscopic timetable graph** ✅ — `rustworkx` time-expanded graph; earliest-arrival routing.
-- **M0.4 — first Bildfahrplan** ✅ — corridor time–distance diagram (matplotlib).
-
-**Phase 0 complete.**
-
-Phase 1 in progress:
-
-- **M1.1 — event-driven core engine** ✅ — `MacroSimulation` reproduces the timetable exactly, deterministically.
-- **M1.2 — delay model & propagation** ✅ — primary delays, dwell recovery, connection holding; no acausal effects.
-- **M1.3 — recording format & replay** ✅ — self-describing Parquet recording; position reconstruction.
-- **M1.4 — ⭐ validation against GTFS-RT** ✅ — sim vs observed delays correlate (r≈0.47); see [`docs/validation-report.md`](docs/validation-report.md).
-- **M1.5 — scale to national macro + profile** ✅ — national rail day in ~8 s; **Rust port not needed** ([`docs/performance-profile.md`](docs/performance-profile.md)).
-
-**Phase 1 complete.**
-
-Phase 2 in progress:
-
-- **M2.1 — track-segment model from OSM** ✅ — single/double-track per segment via cross-section counting.
-- **M2.2 — running-time & headway model** ✅ — segment occupancy as a contended resource; single-track meets resolve at stations.
-- **M2.3 — conflict detection** ✅ — blocking-time over-saturation detection; `dbsim meso` reports conflicts before dispatching.
-- **M2.4 — priority-based dispatcher (v1)** ✅ — swappable `Dispatcher` interface; line closures held conflict-free.
-- **M2.5 — disruption scenario format** ✅ — declarative JSON scenarios (closures, speed restrictions).
-- **M2.6 — UIC 406 capacity analysis** ✅ — blocking-time compression; per-segment occupancy + bottleneck.
-
-**Phase 2 complete.**
-
-Phase 3 in progress:
-
-- **M3.1.0 — zone-coverage survey** ✅ — chose the micro zone from OSM coverage evidence ([`docs/zone-survey.md`](docs/zone-survey.md)): the Ammertalbahn Pfäffingen passing loop.
-- **M3.1 — curate the zone** ✅ — validated micro-infrastructure `MicroZone` (blocks, routes, signals, switches) from real OSM.
-- **M3.2 — microscopic movement & blocking-time** ✅ — speed profiles + blocking-time stairways; min headway.
-- **M3.3 — deadlock avoidance** ✅ — opposing trains meet at the loop without deadlock (`dbsim meet`).
-- **M3.4 — macro–micro coupling** ✅ — micro zone embedded in the macro schedule; micro contention propagates to macro (`dbsim couple`).
-- **M3.5 — micro-validation harness** ✅ — zone consistent with the operated timetable ([`docs/micro-validation.md`](docs/micro-validation.md)).
-
-**Phase 3 complete.**
-
-Phase 4 in progress:
-
-- **M4.1 — alternative-graph dispatcher (v2)** ✅ — AMCC rescheduling beats the priority rule on a disruption (`dbsim reschedule`).
-- **M4.2 — MILP / CP optimal baseline** ✅ — CP-SAT (OR-Tools) optimum: AMCC is provably optimal on the meet, with a quantified 15% gap on a harder 3-train case (`dbsim optimal`).
-- **M4.3 — Monte Carlo robustness** ✅ — RT-calibrated primary-delay model over N seeded replications; delay percentiles + fragility hotspots ([`docs/robustness-study.md`](docs/robustness-study.md)).
-- **M4.4 — ⭐ strategy comparison study** ✅ — priority vs AMCC vs CP-SAT optimal under disruption: alt-graph dispatching cuts clearance delay ~59%, AMCC matches the optimum on 100% of days ([`docs/strategy-comparison-study.md`](docs/strategy-comparison-study.md)).
-
-**Phase 4 complete.**
+The full write-up is [`docs/strategy-comparison-study.md`](docs/strategy-comparison-study.md).
 
 ## Repository layout
 
 ```
 src/dbsim/
-├── seed.py        # central seed control (single source of randomness)
-├── engine/        # event loop, events, movement   (← Rust later, if M1.5 demands)
-├── record/        # recording + determinism hashing
-├── ingest/        # GTFS, GTFS-RT, OSM ETL          (M0.2+)
-├── model/         # infrastructure + timetable graph (M0.3+)
-├── dispatch/      # swappable dispatchers            (Phase 2+)
-├── scenario/      # disruption definitions           (Phase 2+)
-└── analysis/      # metrics, validation, UIC 406     (Phase 1+)
-data/              # raw + processed data (git-ignored; see docs/data-versioning.md)
-viz/  notebooks/  tests/
+├── seed.py        # central seed control (the single source of randomness)
+├── engine/        # discrete-event loop, events, train movement
+├── record/        # recording format and determinism hashing
+├── ingest/        # GTFS, GTFS-RT, and OSM extraction
+├── model/         # infrastructure and the timetable graph
+├── dispatch/      # swappable dispatchers and the optimisation solvers
+├── scenario/      # declarative disruption definitions
+└── analysis/      # metrics, validation, capacity, robustness studies
+data/              # raw and processed data (git-ignored)
+docs/  viz/  notebooks/  tests/
 ```
 
 ## License
