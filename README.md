@@ -14,6 +14,13 @@ The leading research question is **delay propagation** — given a primary delay
 where does it spread, how far, and how does the choice of dispatching rule change
 the outcome.
 
+![Bildfahrplan of the Frankfurt–Hannover corridor](docs/figures/bildfahrplan.png)
+
+*A Bildfahrplan (time–distance diagram) of one simulated service day on the
+Frankfurt–Hannover corridor — 159 trains over 313 km, generated with `dbsim
+bildfahrplan`. Each line is a train; the slope is its speed, and crossings are
+where trains pass or meet.*
+
 ## Design principles
 
 - **Deterministic per seed.** A run is a pure function of its inputs and a single
@@ -69,6 +76,12 @@ Against live data, simulated downstream delays correlate with observed delays
 propagation model is calibrated rather than merely plausible
 ([`docs/validation-report.md`](docs/validation-report.md)).
 
+![Simulated vs observed downstream delay](docs/figures/validation.png)
+
+*Each point is one downstream stop on a nationwide service day (n ≈ 123,000):
+the model's simulated delay against the delay actually observed in the GTFS-RT
+feed. Mass concentrates along the diagonal, where the two agree.*
+
 ### Mesoscopic scale
 
 Station-to-station segments are classified as single- or double-track by counting
@@ -91,6 +104,13 @@ giving the minimum headway between successive movements. Opposing trains are
 routed to a free loop track to avoid deadlock, and the zone's occupancy is
 coupled back into the macroscopic schedule at its boundary, so microscopic
 contention becomes macroscopic delay ([`docs/micro-validation.md`](docs/micro-validation.md)).
+
+![Blocking-time stairway at the Pfäffingen loop](docs/figures/stairway.png)
+
+*A blocking-time stairway for two successive trains over the Pfäffingen route.
+Each shaded band is the interval a block is exclusively reserved for a train;
+the diagonal line is the train's path. The minimum headway is the closest the
+second train (red) can follow without its bands overlapping the first (blue).*
 
 ### Dispatching and optimisation
 
